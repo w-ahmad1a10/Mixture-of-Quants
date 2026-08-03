@@ -38,8 +38,13 @@ def _ensure_dir(path):
 def _upload_results_to_hf(local_dir: str, repo_id: str, token: str, path_in_repo: str = ""):
     """Upload all files in local_dir to HF Hub under path_in_repo."""
     try:
-        from huggingface_hub import HfApi
+        from huggingface_hub import HfApi, create_repo
         api = HfApi(token=token)
+        try:
+            create_repo(repo_id, repo_type="model", exist_ok=True, token=token)
+            print(f"[HF Upload] Created repo: {repo_id}")
+        except Exception as e:
+            print(f"[HF Upload] Repo exists or skipped: {e}")
         for root, _, files in os.walk(local_dir):
             for fname in files:
                 local_path = os.path.join(root, fname)
@@ -82,6 +87,8 @@ class MoQSweep:
         a.output = os.path.join(self.results_root, f"analysis_{mode}.json")
         a.mapping = self.args.mapping
         a.teacher_cache_dir = os.path.join(self.results_root, "teacher_cache")
+        a.skip_teacher_cache = False
+        a.imatrix = getattr(self.args, 'imatrix', None)
         return a
 
     def _ce_args_for_mode(self, mode: str):
@@ -342,6 +349,7 @@ def main():
     parser.add_argument("--hf-upload-repo", type=str, default=None, help="HF repo to upload ALL results to")
     parser.add_argument("--results-dir", type=str, default="sweep_results", help="Local dir to keep ALL results forever")
     parser.add_argument("--model-name", type=str, default="MoQ-Sweep")
+    parser.add_argument("--imatrix", type=str, default=None, help="Imatrix GGUF path for IQ quants")
     args = parser.parse_args()
 
     if not args.dataset_repo and not args.calib_data:
