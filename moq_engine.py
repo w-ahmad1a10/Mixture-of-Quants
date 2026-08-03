@@ -6,6 +6,7 @@ All pipeline stages and evaluation engines in one file.
 import argparse, gc, json, math, os, random, re, sys, glob, warnings, time, hashlib
 from collections import defaultdict
 from pathlib import Path
+import struct
 from typing import Dict, List, Tuple
 
 import torch, torch.nn as nn, torch.nn.functional as F
@@ -1502,8 +1503,8 @@ def _extract_tarball(tarball_path, extract_dir):
     _run_command(f'tar -xzf "{tarball_path}" -C "{extract_dir}"', check=True)
 
 def _fix_nested_structure(extract_dir):
-    _run_command(f'find {extract_dir} -mindepth 2 -type f -name "*.so*" -exec mv -n {{}} {extract_dir}/ \;')
-    _run_command(f'find {extract_dir} -mindepth 2 -type f -name "llama-*" -exec mv -n {{}} {extract_dir}/ \;')
+    _run_command(f'find {extract_dir} -mindepth 2 -type f -name "*.so*" -exec mv -n {{}} {extract_dir}/ \\;')
+    _run_command(f'find {extract_dir} -mindepth 2 -type f -name "llama-*" -exec mv -n {{}} {extract_dir}/ \\;')
     _run_command(f'chmod +x {extract_dir}/llama-*')
 
 def _install_system_libs(extract_dir, system_lib_dir):
