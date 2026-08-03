@@ -349,7 +349,7 @@ def main():
     parser.add_argument("--hf-upload-repo", type=str, default=None, help="HF repo to upload ALL results to")
     parser.add_argument("--results-dir", type=str, default="sweep_results", help="Local dir to keep ALL results forever")
     parser.add_argument("--model-name", type=str, default="MoQ-Sweep")
-    parser.add_argument("--imatrix", type=str, default=None, help="Imatrix GGUF path for IQ quants")
+
     args = parser.parse_args()
 
     if not args.dataset_repo and not args.calib_data:
