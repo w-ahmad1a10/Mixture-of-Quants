@@ -19,7 +19,6 @@ warnings.filterwarnings("ignore")
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
     torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -44,7 +43,7 @@ SKIP_PATTERNS = (
 # ═══════════════════════════════════════════════════════════════════════════════
 def compile_cpp_extension(llama_cpp_dir: str):
     llama_cpp_dir = os.path.abspath(llama_cpp_dir)
-    sources = ["quant_extension.cpp"] if os.path.exists("quant_extension.cpp") else ["src/quant_extension.cpp"]
+    sources = ["quant_extension.cpp"] if os.path.exists("quant_extension.cpp") else ["Mixture-of-Quants/quant_extension.cpp"]
     include_dirs = [
         f"{llama_cpp_dir}/ggml/include",
         f"{llama_cpp_dir}/include",
