@@ -349,6 +349,7 @@ def main():
     parser.add_argument("--hf-upload-repo", type=str, default=None, help="HF repo to upload ALL results to")
     parser.add_argument("--results-dir", type=str, default="sweep_results", help="Local dir to keep ALL results forever")
     parser.add_argument("--model-name", type=str, default="MoQ-Sweep")
+    parser.add_argument("--llama-bin-dir", type=str, default="/workspace/llama_bin", help="Compiled llama.cpp binaries directory")
 
     args = parser.parse_args()
 
