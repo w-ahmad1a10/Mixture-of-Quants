@@ -197,12 +197,12 @@ class NoiseImpactAnalyzer:
         cfg_hash = hashlib.md5(cfg_str.encode()).hexdigest()[:8]
         return os.path.join(self.args.teacher_cache_dir, f"teacher_{cfg_hash}.pt")
 
-    def _cache_teacher_logits_to_cpu_memory(self):
+    def _cache_teacher_logits_to_gpu(self):
         cache_path = self._get_teacher_cache_path()
         if not self.args.skip_teacher_cache and os.path.exists(cache_path):
             print(f"[Cache] Found teacher cache: {cache_path}")
             try:
-                cached_batches = torch.load(cache_path, map_location="cpu", weights_only=False)
+                cached_batches = torch.load(cache_path, map_location=self.input_device, weights_only=False)
                 if isinstance(cached_batches, list) and len(cached_batches) > 0:
                     if "teacher_assistant_log_probs" not in cached_batches[0] or \
                        not isinstance(cached_batches[0]["teacher_assistant_log_probs"][0], tuple):
@@ -247,7 +247,7 @@ class NoiseImpactAnalyzer:
                 k = min(TEACHER_TOPK, vocab_size)
                 for t in teacher_assistant_log_probs:
                     vals, inds = torch.topk(t, k=k, dim=-1, sorted=False)
-                    teacher_sparse.append((vals.cpu(), inds.cpu().to(torch.int32)))
+                    teacher_sparse.append((vals, inds.to(torch.int32)))
                 cached_batches.append({
                     "input_ids": batch["input_ids"],
                     "attention_mask": batch["attention_mask"],
@@ -265,7 +265,7 @@ class NoiseImpactAnalyzer:
 
     def run(self):
         t0 = time.time()
-        cached_batches, num_batches = self._cache_teacher_logits_to_cpu_memory()
+        cached_batches, num_batches = self._cache_teacher_logits_to_gpu()
         t_cache = time.time()
         if num_batches > 0:
             sample_size = sum(
@@ -275,7 +275,7 @@ class NoiseImpactAnalyzer:
                 )
                 for b in cached_batches
             ) / 1e9
-            print(f"[Perf] {num_batches} batches ready ({sample_size:.2f} GB in CPU RAM) in {t_cache - t0:.1f}s")
+            print(f"[Perf] {num_batches} batches ready ({sample_size:.2f} GB in GPU VRAM) in {t_cache - t0:.1f}s")
         if self.args.quant_mode == 'by-tensor-type':
             raw_groups = group_by_tensor_type(self.all_candidates)
         elif self.args.quant_mode == 'by-layer':
@@ -439,10 +439,11 @@ class Evaluator:
         print("  PHASE 1: TEACHER LOGIT CACHING")
         print("="*70)
         cache_path = self._get_teacher_cache_path()
+        self.input_device = next(model.parameters()).device
         if not getattr(self.args, 'skip_teacher_cache', False) and os.path.exists(cache_path):
             print(f"[Cache] Found teacher cache: {cache_path}")
             try:
-                cached_batches = torch.load(cache_path, map_location="cpu", weights_only=False)
+                cached_batches = torch.load(cache_path, map_location=self.input_device, weights_only=False)
                 if isinstance(cached_batches, list) and len(cached_batches) > 0:
                     if "teacher_assistant_log_probs" not in cached_batches[0] or \
                        not isinstance(cached_batches[0]["teacher_assistant_log_probs"][0], tuple):
@@ -457,7 +458,7 @@ class Evaluator:
                             )
                             for b in cached_batches
                         ) / 1e6
-                        print(f"[Cache] Loaded {self.num_batches} batches ({cache_mb:.1f} MB) from disk — skipping teacher forward pass")
+                        print(f"[Cache] Loaded {self.num_batches} batches ({cache_mb:.1f} MB in GPU VRAM) from disk — skipping teacher forward pass")
                         self.cached_batches = cached_batches
                         return
             except Exception as e:
@@ -468,7 +469,6 @@ class Evaluator:
         global_num_batches = math.ceil(actual_chunks / getattr(self.args, 'batch_size', 1))
         batch_iter = iter(self.dataloader)
         cached_batches = []
-        self.input_device = next(model.parameters()).device
         with torch.inference_mode():
             for _ in tqdm(range(global_num_batches), desc="[Teacher] Forward"):
                 try:
@@ -488,7 +488,7 @@ class Evaluator:
                 k = min(TEACHER_TOPK, vocab_size)
                 for t in teacher_assistant_log_probs:
                     vals, inds = torch.topk(t, k=k, dim=-1, sorted=False)
-                    teacher_sparse.append((vals.cpu(), inds.cpu().to(torch.int32)))
+                    teacher_sparse.append((vals, inds.to(torch.int32)))
                 cached_batches.append({
                     "input_ids": batch["input_ids"],
                     "attention_mask": batch["attention_mask"],
