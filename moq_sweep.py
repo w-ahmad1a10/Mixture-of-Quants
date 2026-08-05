@@ -116,7 +116,8 @@ class MoQSweep:
         a.model_name = f"{self.args.model_name}_{mode}"
         a.tensor_files_dir = self._get_weights_file()
         a.layer_block_size = self.args.layer_block_size if mode == 'by-layer-tensor' else 4
-        a.dry_run = True
+        a.dry_run = True,
+        a.mapping = self.args.mapping
         return a
 
     def _get_weights_file(self):
