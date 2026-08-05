@@ -336,8 +336,8 @@ def main():
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--max-seq-length", type=int, default=2048)
     parser.add_argument("--seq-length", type=int, default=512)
-    parser.add_argument("--num-chunks", type=int, default=50)
-    parser.add_argument("--chunks-at-once", type=int, default=5)
+    parser.add_argument("--num-chunks", type=int, default=1)
+    parser.add_argument("--chunks-at-once", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=1)
     # Sweep config
     parser.add_argument("--quant-types", nargs='+', default=['Q8_0','Q6_K','Q5_K','Q4_K','Q3_K','Q2_K','IQ4_XS','IQ3_S','IQ2_S'])
