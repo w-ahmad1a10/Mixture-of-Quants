@@ -9,7 +9,7 @@ from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
 
 import torch, torch.nn as nn, torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Sampler
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from torch.utils.cpp_extension import load
 from tqdm import tqdm
@@ -109,6 +109,75 @@ def extract_assistant_log_probs(log_probs, eval_mask=None, attention_mask=None):
     return assistant_log_probs
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# BUCKET BATCH SAMPLER (NEW)
+# ═══════════════════════════════════════════════════════════════════════════════
+class BucketBatchSampler(Sampler):
+    """
+    Groups samples by length into buckets to minimize padding within batches.
+    """
+    def __init__(self, lengths, batch_size, shuffle=False, seed=42, drop_last=False):
+        self.lengths = lengths
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.seed = seed
+        self.drop_last = drop_last
+        
+        # Define bucket boundaries (covers up to 8192 tokens)
+        boundaries = [128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 8192]
+        self.buckets = {b: [] for b in boundaries}
+        
+        for idx, length in enumerate(self.lengths):
+            assigned = False
+            for b in boundaries:
+                if length <= b:
+                    self.buckets[b].append(idx)
+                    assigned = True
+                    break
+            if not assigned:
+                # Fallback for extremely long sequences
+                self.buckets[boundaries[-1]].append(idx)
+                
+        # Remove empty buckets
+        self.buckets = {k: v for k, v in self.buckets.items() if v}
+        
+    def __iter__(self):
+        g = torch.Generator()
+        g.manual_seed(self.seed)
+        
+        batches = []
+        # Sort bucket keys to ensure deterministic order when shuffle=False
+        sorted_keys = sorted(self.buckets.keys())
+        for b in sorted_keys:
+            indices = self.buckets[b]
+            if self.shuffle:
+                perm = torch.randperm(len(indices), generator=g).tolist()
+                indices = [indices[i] for i in perm]
+            
+            # Create batches from this bucket
+            for i in range(0, len(indices), self.batch_size):
+                batch = indices[i:i + self.batch_size]
+                if len(batch) < self.batch_size and self.drop_last:
+                    continue
+                batches.append(batch)
+                
+        if self.shuffle:
+            # Shuffle the order of the batches themselves
+            perm = torch.randperm(len(batches), generator=g).tolist()
+            batches = [batches[i] for i in perm]
+            
+        for batch in batches:
+            yield batch
+            
+    def __len__(self):
+        total = 0
+        for indices in self.buckets.values():
+            if self.drop_last:
+                total += len(indices) // self.batch_size
+            else:
+                total += math.ceil(len(indices) / self.batch_size)
+        return total
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DATASETS
 # ═══════════════════════════════════════════════════════════════════════════════
 class ChatDataset(Dataset):
@@ -154,6 +223,8 @@ class ChatDataset(Dataset):
                 "input_ids": torch.tensor(full_ids, dtype=torch.long),
                 "eval_mask": eval_mask[:len(full_ids)]
             })
+        # Track lengths for bucketing
+        self.lengths = [len(s["input_ids"]) for s in self.samples]
 
     def __len__(self):
         return len(self.samples)
@@ -188,6 +259,8 @@ class CalibrationDataset(Dataset):
             elif len(chunk) > self.seq_length // 2:
                 chunk = chunk + [tokenizer.pad_token_id] * (self.seq_length - len(chunk))
                 self.samples.append(torch.tensor(chunk, dtype=torch.long))
+        # Track lengths for bucketing
+        self.lengths = [len(s) for s in self.samples]
 
     def __len__(self):
         return len(self.samples)
