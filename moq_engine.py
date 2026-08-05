@@ -246,7 +246,7 @@ class NoiseImpactAnalyzer:
                 logits = self.model(input_ids=input_ids_gpu, attention_mask=attention_mask_gpu).logits
                 log_probs = F.log_softmax(logits, dim=-1)
                 eval_mask = batch.get("eval_mask")
-                teacher_assistant_log_probs = extract_assistant_log_procs(
+                teacher_assistant_log_probs = extract_assistant_log_probs(
                     log_probs, eval_mask, batch["attention_mask"]
                 )
                 teacher_sparse = []
