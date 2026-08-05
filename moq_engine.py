@@ -350,7 +350,7 @@ class NoiseImpactAnalyzer:
                     if group_idx % max(1, total_groups // 10) == 0:
                         elapsed = time.time() - t0
                         remain = elapsed / group_idx * (total_groups - group_idx) if group_idx > 0 else 0
-                        print(f"[Perf] {group_idx}/{total_groups} groups | {elapsed:.1f}s elapsed | ~{remain:.0s}s left")
+                        print(f"[Perf] {group_idx}/{total_groups} groups | {elapsed:.1f}s elapsed | ~{remain:.0f}s left")
                 print(f"[Perf] Quant type {quant_type} done in {time.time() - t_quant_start:.1f}s")
         results = {}
         for quant_type in self.args.quant_types:
