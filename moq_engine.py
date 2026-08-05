@@ -1150,6 +1150,8 @@ class MoQFinalQuantizer:
         self.tensor_files_dir = args.tensor_files_dir
         self.dry_run = args.dry_run
         self.layer_block_size = getattr(args, 'layer_block_size', 4)
+        # ─── FIX: store mapping path ───
+        self.mapping_path = getattr(args, 'mapping', None)
         with open(args.param_counts, 'r') as f:
             self.param_counts = json.load(f)
         os.makedirs(self.output_dir, exist_ok=True)
@@ -1241,6 +1243,26 @@ class MoQFinalQuantizer:
         layer_tensors = self._load_layer_tensors()
         generated_files = []
         block_size = self.layer_block_size
+
+        # ─── FIX: Build translation: GGUF base → PyTorch tensor type ───
+        gguf_to_pytorch = {}
+        if self.mapping_path and os.path.exists(self.mapping_path):
+            with open(self.mapping_path) as f:
+                for line in f:
+                    line = line.split('#')[0].strip()
+                    if not line or '=' not in line:
+                        continue
+                    pt_name, gguf_name = line.split('=', 1)
+                    pt_name = pt_name.strip()
+                    gguf_name = gguf_name.strip()
+                    # Remove .weight/.bias and blk.X. prefix
+                    gguf_base = gguf_name.replace('.weight', '').replace('.bias', '')
+                    if gguf_base.startswith('blk.') and '.' in gguf_base[4:]:
+                        gguf_base = '.'.join(gguf_base.split('.')[2:])   # remove blk.<num>.
+                    pytorch_type = pt_name.split('.')[-1]
+                    gguf_to_pytorch[gguf_base] = pytorch_type
+        # ───────────────────────────────────────────────────────────────────
+
         for bits in self.bits_list:
             best_ce, budget_used, combo = self.solve_mckp(stages, bits, scale=10000)
             if best_ce is None:
@@ -1253,20 +1275,23 @@ class MoQFinalQuantizer:
                 if layer_match:
                     layer_idx = int(layer_match.group(1))
                     base_name = re.sub(r'^blk\.\d+\.', '', clean)
+                    # Translate GGUF base to PyTorch type
+                    pytorch_type = gguf_to_pytorch.get(base_name, base_name)
                     group_start = (layer_idx // block_size) * block_size
                     group_end = group_start + block_size - 1
-                    hybrid_key = f"{base_name}_layer_{group_start}-{group_end}"
+                    # Build hybrid key using translated PyTorch type
+                    hybrid_key = f"{pytorch_type}_layer_{group_start}-{group_end}"
                     if hybrid_key in suffix_to_quant:
-                        tensor_file_content.append(f"{fq_name}={suffix_to_quant[hybrid_key]}")
-                    elif base_name in suffix_to_quant:
-                        tensor_file_content.append(f"{fq_name}={suffix_to_quant[base_name]}")
+                        quant = suffix_to_quant[hybrid_key]
+                    elif pytorch_type in suffix_to_quant:
+                        quant = suffix_to_quant[pytorch_type]
                     else:
-                        tensor_file_content.append(f"{fq_name}=bf16")
+                        quant = "bf16"
                 else:
-                    if clean in suffix_to_quant:
-                        tensor_file_content.append(f"{fq_name}={suffix_to_quant[clean]}")
-                    else:
-                        tensor_file_content.append(f"{fq_name}=bf16")
+                    # Non-layer tensors (embed, lm_head)
+                    pytorch_type = gguf_to_pytorch.get(clean, clean)
+                    quant = suffix_to_quant.get(pytorch_type, "bf16")
+                tensor_file_content.append(f"{fq_name}={quant}")
             tensor_filename = f"MoQ_{self.model_name}_tensors_{bits}.txt"
             tensor_path = os.path.join(self.output_dir, tensor_filename)
             with open(tensor_path, 'w') as f:
@@ -1589,3 +1614,4 @@ def run_build_llama(args):
     print(f"   Binaries: {args.output_dir}")
     print(f"   Source:   {args.source_dir}")
     return 0 if success else 1
+            
