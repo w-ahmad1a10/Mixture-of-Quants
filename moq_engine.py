@@ -19,7 +19,7 @@ from moq_core import (
     GGML_TYPE_MAP, TEACHER_TOPK, SKIP_PATTERNS, compile_cpp_extension,
     compute_token_kld, extract_assistant_log_probs,
     ChatDataset, chat_collate_fn, CalibrationDataset, text_collate_fn,
-    parse_mapping_file
+    parse_mapping_file, BucketBatchSampler
 )
 
 warnings.filterwarnings("ignore")
@@ -163,8 +163,11 @@ class NoiseImpactAnalyzer:
                 args.dataset_repo, args.dataset_split, self.tokenizer,
                 args.max_samples, args.max_seq_length
             )
+            sampler = BucketBatchSampler(
+                self.dataset.lengths, batch_size=args.chunks_at_once, shuffle=False, seed=args.seed
+            )
             self.dataloader = DataLoader(
-                self.dataset, batch_size=args.chunks_at_once, shuffle=False,
+                self.dataset, batch_sampler=sampler,
                 collate_fn=lambda b: chat_collate_fn(b, self.tokenizer),
                 pin_memory=(self.device.type == "cuda"), num_workers=4
             )
@@ -174,8 +177,11 @@ class NoiseImpactAnalyzer:
             with open(args.calib_data, 'r', encoding='utf-8') as f:
                 texts = [t for t in f.read().split('\n') if t.strip()]
             self.dataset = CalibrationDataset(texts, self.tokenizer, args.seq_length)
+            sampler = BucketBatchSampler(
+                self.dataset.lengths, batch_size=args.chunks_at_once, shuffle=False, seed=args.seed
+            )
             self.dataloader = DataLoader(
-                self.dataset, batch_size=args.chunks_at_once, shuffle=False,
+                self.dataset, batch_sampler=sampler,
                 collate_fn=lambda b: text_collate_fn(b, self.tokenizer),
                 pin_memory=(self.device.type == "cuda"), num_workers=4
             )
@@ -192,7 +198,8 @@ class NoiseImpactAnalyzer:
             f"ca{self.args.chunks_at_once}_"
             f"seed{self.args.seed}_"
             f"dtype{self.args.dtype}_"
-            f"topk{TEACHER_TOPK}"
+            f"topk{TEACHER_TOPK}_"
+            f"bucketed_v1"
         )
         cfg_hash = hashlib.md5(cfg_str.encode()).hexdigest()[:8]
         return os.path.join(self.args.teacher_cache_dir, f"teacher_{cfg_hash}.pt")
@@ -239,7 +246,7 @@ class NoiseImpactAnalyzer:
                 logits = self.model(input_ids=input_ids_gpu, attention_mask=attention_mask_gpu).logits
                 log_probs = F.log_softmax(logits, dim=-1)
                 eval_mask = batch.get("eval_mask")
-                teacher_assistant_log_probs = extract_assistant_log_probs(
+                teacher_assistant_log_probs = extract_assistant_log_procs(
                     log_probs, eval_mask, batch["attention_mask"]
                 )
                 teacher_sparse = []
@@ -343,7 +350,7 @@ class NoiseImpactAnalyzer:
                     if group_idx % max(1, total_groups // 10) == 0:
                         elapsed = time.time() - t0
                         remain = elapsed / group_idx * (total_groups - group_idx) if group_idx > 0 else 0
-                        print(f"[Perf] {group_idx}/{total_groups} groups | {elapsed:.1f}s elapsed | ~{remain:.0f}s left")
+                        print(f"[Perf] {group_idx}/{total_groups} groups | {elapsed:.1f}s elapsed | ~{remain:.0s}s left")
                 print(f"[Perf] Quant type {quant_type} done in {time.time() - t_quant_start:.1f}s")
         results = {}
         for quant_type in self.args.quant_types:
@@ -406,10 +413,16 @@ class Evaluator:
                 texts, self.tokenizer, getattr(self.args, 'seq_length', 512)
             )
             self.collate_fn = lambda b: text_collate_fn(b, self.tokenizer)
-        self.dataloader = DataLoader(
-            self.dataset,
+            
+        sampler = BucketBatchSampler(
+            self.dataset.lengths,
             batch_size=getattr(self.args, 'batch_size', 1),
             shuffle=False,
+            seed=getattr(self.args, 'seed', 42)
+        )
+        self.dataloader = DataLoader(
+            self.dataset,
+            batch_sampler=sampler,
             collate_fn=self.collate_fn,
             pin_memory=(self.device.type == "cuda"),
             num_workers=4
@@ -429,7 +442,8 @@ class Evaluator:
             f"bs{getattr(self.args, 'batch_size', 1)}_"
             f"seed{self.args.seed}_"
             f"dtype{getattr(self.args, 'dtype', 'bfloat16')}_"
-            f"topk{TEACHER_TOPK}"
+            f"topk{TEACHER_TOPK}_"
+            f"bucketed_v1"
         )
         cfg_hash = hashlib.md5(cfg_str.encode()).hexdigest()[:8]
         return os.path.join(cache_dir, f"teacher_{cfg_hash}.pt")
