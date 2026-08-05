@@ -92,7 +92,8 @@ def run_pipeline(args):
             model_name=args.model_name,
             tensor_files_dir=weights_file,
             layer_block_size=getattr(args, 'layer_block_size', 4),
-            dry_run=args.dry_run
+            dry_run=args.dry_run,
+            mapping=args.tensor_map_output
         )
         MoQFinalQuantizer(quant_args).run()
         print(f"\n{'='*70}\n  STAGE 5: Optimize & Quantize — DONE\n{'='*70}")
