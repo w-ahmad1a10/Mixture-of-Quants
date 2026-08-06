@@ -440,7 +440,7 @@ def main():
     parser.add_argument("--chunks-at-once", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=1)
     # Sweep config
-    parser.add_argument("--quant-types", nargs='+', default=['Q8_0','Q6_K','Q5_K','Q4_K','Q3_K','Q2_K','IQ4_XS','IQ3_S','IQ2_S'])
+    parser.add_argument("--quant-types", nargs='+', default=['Q8_0','Q6_K'])
     parser.add_argument("--bits-list", nargs='+', type=float, default=[5.0,4.5,4.0,3.5,3.0], help="Target BPW budgets to generate configs for")
     parser.add_argument("--layer-block-size", type=int, default=4, help="Layer block size for by-layer-tensor")
     parser.add_argument("--dtype", type=str, default="bfloat16", choices=['float16','bfloat16','float32'])
