@@ -4,10 +4,12 @@ moq_sweep.py
 Sweep all 4 grouping variants, produce PyTorch mixed-precision models,
 evaluate them, save ALL results, upload ONLY results to HF Hub.
 NO GGUF generation. Models are deleted after eval; results are kept forever.
+
+Now supports multiple evaluation datasets, WandB logging, and global teacher cache.
 """
 import argparse, gc, json, math, os, random, re, sys, glob, shutil, time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Any
 
 import torch, torch.nn as nn, torch.nn.functional as F
 from torch.utils.data import DataLoader
@@ -79,8 +81,93 @@ class MoQSweep:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
+        # ─── Parse evaluation configs ────────────────────────────────────────
+        self.eval_configs = self._parse_eval_configs(args)
+        # ─── Load teacher model once and cache logits for all eval datasets ──
+        self.teacher_model = None
+        self.evaluators = []
+        self._prepare_teacher_cache()
+
+    def _parse_eval_configs(self, args):
+        """Build list of eval config dicts from --eval-configs JSON or fallback to KLD dataset."""
+        if args.eval_configs:
+            configs = json.loads(args.eval_configs)
+            # Fill missing fields with defaults from main args
+            for cfg in configs:
+                cfg.setdefault("split", "train")
+                cfg.setdefault("max_samples", args.max_samples)
+                cfg.setdefault("max_seq_length", args.max_seq_length)
+                cfg.setdefault("seq_length", args.seq_length)
+                cfg.setdefault("num_chunks", args.num_chunks)
+                cfg.setdefault("batch_size", args.batch_size)
+                if "name" not in cfg:
+                    cfg["name"] = cfg["path"].replace("/", "_").replace(".txt", "")
+            return configs
+        else:
+            # Single default from KLD args
+            default = {
+                "type": "chat" if args.dataset_repo else "text",
+                "path": args.dataset_repo or args.calib_data,
+                "split": args.dataset_split,
+                "max_samples": args.max_samples,
+                "max_seq_length": args.max_seq_length,
+                "seq_length": args.seq_length,
+                "num_chunks": args.num_chunks,
+                "batch_size": args.batch_size,
+                "name": "default"
+            }
+            if default["path"] is None:
+                raise ValueError("No calibration dataset provided (neither --calib-data nor --dataset-repo).")
+            return [default]
+
+    def _prepare_teacher_cache(self):
+        """Load the teacher model once and cache its logits for all eval datasets."""
+        print("\n" + "="*70)
+        print("  PREPARING TEACHER CACHE (global, reused for all sweeps)")
+        print("="*70)
+
+        # 1. Load teacher model
+        torch_dtype = getattr(torch, self.args.dtype)
+        self.teacher_model, input_device = load_model(
+            self.args.model, torch_dtype, self.args.trust_remote_code,
+            self.args.hf_token, self.device
+        )
+        # 2. For each eval config, create an Evaluator and cache teacher logits
+        for cfg in self.eval_configs:
+            eval_args = self._build_eval_args(cfg)
+            evaluator = Evaluator(eval_args)
+            # We need to set the evaluator's input_device to that of teacher model
+            evaluator.input_device = input_device
+            # Cache teacher logits using the teacher model
+            evaluator.cache_teacher_logits(self.teacher_model)
+            # Store evaluator with a name
+            evaluator.dataset_name = cfg.get("name", cfg["path"])
+            self.evaluators.append(evaluator)
+
+        print(f"[Teacher] Cached logits for {len(self.evaluators)} datasets.")
+        # Keep teacher_model for later quantization (we'll modify it in-place)
+
+    def _build_eval_args(self, cfg):
+        """Build argparse.Namespace for Evaluator from a config dict."""
+        a = argparse.Namespace(**vars(self.args))
+        a.model = self.args.model
+        a.calib_data = cfg["path"] if cfg["type"] == "text" else None
+        a.dataset_repo = cfg["path"] if cfg["type"] == "chat" else None
+        a.dataset_split = cfg.get("split", "train")
+        a.max_samples = cfg.get("max_samples")
+        a.max_seq_length = cfg.get("max_seq_length", 2048)
+        a.seq_length = cfg.get("seq_length", 512)
+        a.num_chunks = cfg.get("num_chunks", 50)
+        a.batch_size = cfg.get("batch_size", 1)
+        # Unique cache dir per dataset to avoid collisions
+        ds_name = cfg.get("name", cfg["path"].replace("/", "_"))
+        a.teacher_cache_dir = os.path.join(self.results_root, "teacher_cache", ds_name)
+        a.skip_teacher_cache = False  # We want to cache
+        return a
+
+    # ─── KLD, CE, Optimize (unchanged except minor path adjustments) ──────
+
     def _kld_args_for_mode(self, mode: str, block_size: int = 4):
-        """Build an argparse.Namespace for KLD analysis for a given mode."""
         a = argparse.Namespace(**vars(self.args))
         a.quant_mode = mode
         a.layer_block_size = block_size if mode == 'by-layer-tensor' else 4
@@ -103,7 +190,6 @@ class MoQSweep:
         return a
 
     def _optimize_args_for_mode(self, mode: str):
-        """Return args for MoQFinalQuantizer (dry-run to get .txt configs only)."""
         ce_dir = os.path.join(self.results_root, f"ce_{mode}")
         a = argparse.Namespace()
         a.ce_results = os.path.join(ce_dir, "ce_results.txt")
@@ -121,7 +207,6 @@ class MoQSweep:
         return a
 
     def _get_weights_file(self):
-        """Extract weights map once, reuse for all modes."""
         cache_path = os.path.join(self.results_root, "weights_map.txt")
         if os.path.exists(cache_path):
             return cache_path
@@ -130,7 +215,6 @@ class MoQSweep:
             file=self.args.gguf_file, output_dir=self.results_root
         )
         path = run_extract_weights(ew_args)
-        # Rename to consistent name
         if path != cache_path:
             shutil.copy(path, cache_path)
         return cache_path
@@ -164,20 +248,18 @@ class MoQSweep:
         print(f"[SWEEP] Generated {len(configs)} configs: {[c['bits'] for c in configs]}")
         return configs
 
+    # ─── NEW APPLY+EVAL (with multiple datasets, WandB, global cache) ──────
+
     def apply_and_evaluate(self, config_path: str, bits: float, mode: str):
-        """Load model, apply config, evaluate, save results, delete model."""
+        """Apply quant config to the globally cached teacher model, evaluate on all cached datasets, restore, log to WandB."""
         print(f"\n{'='*70}")
         print(f"  [SWEEP] APPLY + EVAL :: {mode} @ {bits} BPW")
         print(f"{'='*70}")
 
-        # ── 1. Load model ──
-        torch_dtype = getattr(torch, self.args.dtype)
-        model, input_device = load_model(
-            self.args.model, torch_dtype, self.args.trust_remote_code,
-            self.args.hf_token, self.device
-        )
+        # Use the globally loaded teacher model (we will modify it in-place and restore)
+        model = self.teacher_model  # Already on device
 
-        # ── 2. Apply quantization config ──
+        # ── 1. Apply quantization config (in-place) ──
         mapping = parse_mapping_file(self.args.mapping)
         quant_cfg = parse_quant_config(config_path)
         originals = []
@@ -206,51 +288,69 @@ class MoQSweep:
                 skipped += 1
         print(f"  Quantized {quantized}, skipped {skipped}")
 
-        # ── 3. Evaluate ──
-        eval_args = argparse.Namespace(**vars(self.args))
-        eval_args.model = self.args.model
-        evaluator = Evaluator(eval_args)
-        evaluator.cache_teacher_logits(model)
-        metrics = evaluator.evaluate_student(model)
-        evaluator.cleanup()
+        # ── 2. Evaluate on all cached datasets ──
+        all_metrics = {}
+        for evaluator in self.evaluators:
+            ds_name = evaluator.dataset_name
+            print(f"\n  Evaluating dataset: {ds_name}")
+            metrics = evaluator.evaluate_student(model)
+            all_metrics[ds_name] = metrics if metrics else {"error": "No metrics"}
 
-        # ── 4. Save results ──
+        # ── 3. Restore original weights ──
+        for module, orig in originals:
+            module.weight.data = orig
+        print(f"  [Cleanup] Restored original weights")
+
+        # ── 4. Save combined results ──
         result = {
             "mode": mode,
             "bits": bits,
             "config_file": os.path.basename(config_path),
             "model": self.args.model,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "eval_datasets": [e.dataset_name for e in self.evaluators],
+            "metrics": all_metrics
         }
-        if metrics:
-            result.update(metrics)
-        result_path = os.path.join(
-            self.results_root, f"eval_{mode}_{bits}.json"
-        )
+        result_path = os.path.join(self.results_root, f"eval_{mode}_{bits}.json")
         with open(result_path, 'w') as f:
             json.dump(result, f, indent=2)
         print(f"  [Result] Saved: {result_path}")
 
-        # ── 5. Upload results ──
+        # ── 5. WandB logging ──
+        if self.args.use_wandb:
+            import wandb
+            run_name = self.args.wandb_run_name or f"{mode}_{bits}bpw"
+            wandb.init(
+                project=self.args.wandb_project,
+                entity=self.args.wandb_entity,
+                name=run_name,
+                config={
+                    "mode": mode,
+                    "bits": bits,
+                    "quant_config": os.path.basename(config_path),
+                    "eval_datasets": self.eval_configs,
+                }
+            )
+            for ds_name, metrics in all_metrics.items():
+                if metrics and "error" not in metrics:
+                    wandb.log({f"eval/{ds_name}/{k}": v for k, v in metrics.items()})
+                else:
+                    wandb.log({f"eval/{ds_name}/error": 1})
+            wandb.finish()
+            print(f"  [WandB] Logged run: {run_name}")
+
+        # ── 6. Upload results ──
         if self.args.hf_upload_repo:
             _upload_results_to_hf(
                 self.results_root, self.args.hf_upload_repo,
                 self.args.hf_token, path_in_repo=f"results_{mode}_{bits}"
             )
 
-        # ── 6. Restore + delete model ──
-        for module, orig in originals:
-            module.weight.data = orig
-        del model
-        gc.collect()
-        if self.device.type == "cuda":
-            torch.cuda.empty_cache()
-        print(f"  [Cleanup] Model unloaded")
-
         return result
 
+    # ─── RUN SINGLE MODE (unchanged loop) ──────────────────────────────────
+
     def run_single_mode(self, mode: str):
-        """Run full pipeline for one grouping mode."""
         print(f"\n{'#'*70}")
         print(f"#  SWEEPING MODE: {mode}")
         print(f"{'#'*70}")
@@ -264,7 +364,7 @@ class MoQSweep:
         # Stage 4: Optimize (dry-run → .txt configs)
         configs = self.run_optimize(mode)
 
-        # Stage 5: Apply each config + evaluate
+        # Stage 5: Apply each config + evaluate (using global cache)
         all_evals = []
         for cfg in configs:
             eval_result = self.apply_and_evaluate(cfg['path'], cfg['bits'], mode)
@@ -329,7 +429,7 @@ def main():
     parser.add_argument("--gguf-file", type=str, required=True, help="GGUF filename")
     parser.add_argument("--llama-cpp-dir", type=str, required=True, help="llama.cpp source dir")
     parser.add_argument("--imatrix", type=str, default=None, help="Imatrix GGUF path")
-    # Calibration
+    # Calibration (KLD/CE) – still needed for MCKP, but eval can be overridden
     parser.add_argument("--calib-data", type=str, default=None, help="Raw text calibration file")
     parser.add_argument("--dataset-repo", type=str, default=None, help="HF dataset repo for chat")
     parser.add_argument("--dataset-split", type=str, default="train")
@@ -352,10 +452,18 @@ def main():
     parser.add_argument("--model-name", type=str, default="MoQ-Sweep")
     parser.add_argument("--llama-bin-dir", type=str, default="/workspace/llama_bin", help="Compiled llama.cpp binaries directory")
 
+    # ─── NEW ARGUMENTS ──────────────────────────────────────────────────────────
+    parser.add_argument("--eval-configs", type=str, default=None,
+                        help='JSON list of eval dataset configs: [{"type":"text|chat","path":"...","name":"..."}, ...]')
+    parser.add_argument("--use-wandb", action="store_true", help="Enable WandB logging")
+    parser.add_argument("--wandb-project", type=str, default="MoQ-Sweep", help="WandB project name")
+    parser.add_argument("--wandb-entity", type=str, default=None, help="WandB entity/username")
+    parser.add_argument("--wandb-run-name", type=str, default=None, help="Override run name (default: <mode>_<bits>bpw)")
+
     args = parser.parse_args()
 
-    if not args.dataset_repo and not args.calib_data:
-        parser.error("Must provide either --calib-data or --dataset-repo")
+    if not args.dataset_repo and not args.calib_data and not args.eval_configs:
+        parser.error("Must provide either --calib-data, --dataset-repo, or --eval-configs")
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
