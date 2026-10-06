@@ -1,0 +1,65 @@
+# Hyperparameters for run_all_goals.py — copied VERBATIM from the original
+# experimental script. Do not edit values here unless you mean to change the
+# experiment. All paths are Colab paths (run inside a Colab session).
+
+model: Qwen/Qwen3.5-0.8B
+mapping: tensor_map_qwen.txt
+gguf_repo: unsloth/Qwen3.5-0.8B-GGUF
+gguf_file: Qwen3.5-0.8B-BF16.gguf
+llama_cpp_dir: /workspace/llama.cpp
+imatrix: /workspace/Qwen3.5-0.8B.imatrix
+wiki_path: /workspace/wiki.test (2).raw
+hf_token: ""
+
+# Common args passed to every moq.py run command.
+# run_all_goals.py reads this block and passes them to every goal — keep it in sync.
+common:
+  trust_remote_code: true
+  dtype: float16
+  quant_types: ALL
+  bits_list: ["5.0", "4.5", "4.0", "3.5", "3.0", "2.5"]
+  mmlu_batch_size: 8
+
+# Eval configs for GOAL 1 (final eval) and GOAL 3
+eval_configs:
+  - {type: chat, path: w-ahmad/open-perfectblend-500k-tokens, name: pile-cc}
+  - {type: mmlu, name: mmlu}
+  - {type: text, path: /content/workspace/wiki.test (2).raw, name: wiki, seq_length: 512, num_chunks: 98}
+  - {type: text, hf_dataset_repo: HuggingFaceFW/fineweb-edu, name: fineweb-edu, seq_length: 512, num_chunks: 977, hf_dataset_max_docs: 1000}
+  - {type: text, hf_dataset_repo: bigcode/the-stack, name: the-stack-python, hf_dataset_config: data/python, seq_length: 512, num_chunks: 977, hf_dataset_max_docs: 1000}
+  - {type: text, hf_dataset_repo: HuggingFaceTB/finemath, name: finemath-4plus, hf_dataset_config: finemath-4plus, seq_length: 512, num_chunks: 977, hf_dataset_max_docs: 1000}
+  - {type: text, hf_dataset_repo: allenai/c4, name: c4-ar, hf_dataset_config: ar, seq_length: 512, num_chunks: 977, hf_dataset_max_docs: 1000}
+  - {type: text, hf_dataset_repo: allenai/c4, name: c4-en, hf_dataset_config: en, seq_length: 512, num_chunks: 977, hf_dataset_max_docs: 1000}
+
+
+# GOAL 1 — all 4 grouping modes, 100 samples from dataset repo
+goal1:
+  - {name: by-tensor-type, mode: by-tensor-type, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 100, batch_size: 8, num_chunks: 13, seed: 42, eval_configs: eval_configs, results_dir: results_goal1_by-tensor-type}
+  - {name: by-layer, mode: by-layer, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 100, batch_size: 8, num_chunks: 13, seed: 42, eval_configs: eval_configs, results_dir: results_goal1_by-layer}
+  - {name: individual, mode: individual, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 100, batch_size: 8, num_chunks: 13, seed: 42, eval_configs: eval_configs, results_dir: results_goal1_individual}
+  - {name: by-layer-tensor, mode: by-layer-tensor, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 100, batch_size: 8, num_chunks: 13, seed: 42, eval_configs: eval_configs, results_dir: results_goal1_by-layer-tensor}
+
+# GOAL 2 — dataset repo vs 6 noise datasets, by-tensor-type
+# Each variant runs KLD analysis on its source, then final eval on eval_configs (8 datasets).
+goal2:
+  - {name: repo100, mode: by-tensor-type, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 100, batch_size: 8, num_chunks: 13, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_repo100}
+  - {name: wiki, mode: by-tensor-type, calib_data: /content/workspace/wiki.test (2).raw, max_seq_length: 512, seq_length: 512, max_samples: 1000, batch_size: 8, num_chunks: 98, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_wiki}
+  - {name: fineweb-edu, mode: by-tensor-type, hf_dataset_repo: HuggingFaceFW/fineweb-edu, max_seq_length: 512, seq_length: 512, max_samples: 1000, batch_size: 8, num_chunks: 98, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_fineweb-edu}
+  - {name: the-stack-python, mode: by-tensor-type, hf_dataset_repo: bigcode/the-stack, hf_dataset_config: data/python, max_seq_length: 512, seq_length: 512, max_samples: 1000, batch_size: 8, num_chunks: 98, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_the-stack-python}
+  - {name: finemath-4plus, mode: by-tensor-type, hf_dataset_repo: HuggingFaceTB/finemath, hf_dataset_config: finemath-4plus, max_seq_length: 512, seq_length: 512, max_samples: 1000, batch_size: 8, num_chunks: 98, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_finemath-4plus}
+  - {name: c4-ar, mode: by-tensor-type, hf_dataset_repo: allenai/c4, hf_dataset_config: ar, max_seq_length: 512, seq_length: 512, max_samples: 1000, batch_size: 8, num_chunks: 98, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_c4-ar}
+  - {name: c4-en, mode: by-tensor-type, hf_dataset_repo: allenai/c4, hf_dataset_config: en, max_seq_length: 512, seq_length: 512, max_samples: 1000, batch_size: 8, num_chunks: 98, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_c4-en}
+
+# GOAL 4 — uniform quantization baseline (apply + evaluate only)
+# Uses moq.py quant, not run. No KLD/CE/MCKP — just apply each uniform config
+# to the teacher model and evaluate on eval_configs. The control group.
+goal4:
+  - {name: "uniform-2.0", quant_config: /content/Mixture-of-Quants/configs/config_2.0.txt, eval_configs: eval_configs, results_dir: results_goal4_uniform-2.0}
+  - {name: "uniform-3.0", quant_config: /content/Mixture-of-Quants/configs/config_3.0.txt, eval_configs: eval_configs, results_dir: results_goal4_uniform-3.0}
+  - {name: "uniform-4.0", quant_config: /content/Mixture-of-Quants/configs/config_4.0.txt, eval_configs: eval_configs, results_dir: results_goal4_uniform-4.0}
+
+# GOAL 3 — dataset repo sample count sweep, by-tensor-type
+goal3:
+  - {name: "100", mode: by-tensor-type, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 100, batch_size: 8, num_chunks: 13, seed: 42, eval_configs: eval_configs, results_dir: results_goal3_100}
+  - {name: "500", mode: by-tensor-type, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 500, batch_size: 8, num_chunks: 63, seed: 42, eval_configs: eval_configs, results_dir: results_goal3_500}
+  - {name: "1000", mode: by-tensor-type, dataset_repo: w-ahmad/open-perfectblend-500k-tokens, dataset_split: train, max_seq_length: 1200, max_samples: 1000, batch_size: 8, num_chunks: 125, seed: 42, eval_configs: eval_configs, results_dir: results_goal3_1000}

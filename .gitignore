@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Caches
+.pytest_cache/
+.cache/
+
+# Experiment data (regenerated on each run)
+Results/
+Logs/
+MoQ-EXP/
+*.gguf
+*.imatrix
+
+# Local model artifacts
+*.bin
+*.safetensors
