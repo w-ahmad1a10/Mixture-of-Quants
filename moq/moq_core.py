@@ -1276,6 +1276,10 @@ class MixedQuantRunner:
             if not gguf_name:
                 skipped_count += 1
                 continue
+            if any(p in full_name.lower() for p in SKIP_PATTERNS) or \
+               any(p in gguf_name.lower() for p in SKIP_PATTERNS):
+                skipped_count += 1
+                continue
             quant_type = quant_config.get(gguf_name)
             if not quant_type:
                 skipped_count += 1
@@ -1386,7 +1390,6 @@ class MixedQuantRunner:
             torch.cuda.empty_cache()
         if evaluator:
             evaluator.cleanup()
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECTION D: COMPUTE CE (from compute_ce.py)
@@ -2862,7 +2865,8 @@ import argparse, gc, json, math, os, random, re, sys, glob, shutil, time
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
-import torch, torch.nn as nn, torch.nn.functional as F
+import torch, torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
@@ -3178,6 +3182,9 @@ class MoQRunner:
             gguf_name = mapping.get(full_name)
             if not gguf_name:
                 skipped += 1; continue
+            if any(p in full_name.lower() for p in SKIP_PATTERNS) or \
+               any(p in gguf_name.lower() for p in SKIP_PATTERNS):
+                skipped += 1; continue
             qt = quant_cfg.get(gguf_name)
             if not qt or qt not in GGML_TYPE_MAP:
                 skipped += 1; continue
@@ -3263,14 +3270,27 @@ class MoQRunner:
         print(f"#  SWEEPING MODE: {mode}")
         print(f"{'#'*70}")
 
-        # Stage 2: KLD
-        kld_json = self.run_kld(mode)
+        if getattr(self.args, "skip_kld", False):
+            kld_json = os.path.join(self.results_root, f"analysis_{mode}.json")
+            print(f"[skip-kld] Reusing {kld_json}")
+        else:
+            kld_json = self.run_kld(mode)
 
-        # Stage 3: CE
-        ce_dir = self.run_ce(mode)
+        if getattr(self.args, "skip_ce", False):
+            ce_dir = os.path.join(self.results_root, f"ce_{mode}")
+            print(f"[skip-ce] Reusing {ce_dir}")
+        else:
+            ce_dir = self.run_ce(mode)
 
-        # Stage 4: Optimize (dry-run → .txt configs)
-        configs = self.run_optimize(mode)
+        if getattr(self.args, "skip_optimize", False):
+            configs_dir = os.path.join(self.results_root, f"configs_{mode}")
+            configs = []
+            for p in sorted(glob.glob(os.path.join(configs_dir, "*.txt"))):
+                m = re.search(r"_(\d+\.\d+)\.txt$", os.path.basename(p))
+                configs.append({"path": p, "bits": float(m.group(1)) if m else 0.0})
+            print(f"[skip-optimize] Loaded {len(configs)} configs from {configs_dir}")
+        else:
+            configs = self.run_optimize(mode)
 
         # Stage 5: Apply each config + evaluate (using global cache)
         all_evals = []
@@ -3291,11 +3311,49 @@ class MoQRunner:
         print(f"[SWEEP] Summary saved: {summary_path}")
         return all_evals
 
+    def _run_from_configs_dir(self):
+        """Apply each pre-made .txt config in --configs-dir, evaluate on all cached datasets."""
+        cfg_dir = self.args.configs_dir
+        if not os.path.isdir(cfg_dir):
+            raise FileNotFoundError(f"--configs-dir not found: {cfg_dir}")
+        cfg_files = sorted(glob.glob(os.path.join(cfg_dir, "*.txt")))
+        if not cfg_files:
+            raise ValueError(f"No .txt configs in {cfg_dir}")
+
+        self._offload_final_eval_caches_to_cpu()
+        gc.collect()
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
+
+        all_results = {}
+        for cfg_path in cfg_files:
+            stem = os.path.splitext(os.path.basename(cfg_path))[0]
+            m = re.search(r"(\d+\.\d+)", stem)
+            bits = float(m.group(1)) if m else 0.0
+            print(f"\n{'='*70}\n  [configs-dir] {stem} @ {bits} bpw\n{'='*70}")
+            all_results[stem] = self.apply_and_evaluate(cfg_path, bits, mode=stem)
+
+        master_path = os.path.join(self.results_root, "master_summary.json")
+        with open(master_path, "w") as f:
+            json.dump(all_results, f, indent=2)
+        print(f"[configs-dir] master_summary.json -> {master_path}")
+
+        if self.args.hf_upload_repo:
+            _upload_results_to_hf(
+                self.results_root, self.args.hf_upload_repo,
+                self.args.hf_token, path_in_repo="final_results"
+            )
+        return all_results
+
     def run(self):
         # Expand the "ALL" shorthand to the full quant-type toolbox
         # (excludes Q1_0/Q2_0, matching the original experiment's 19 types).
         if self.args.quant_types == ['ALL'] or self.args.quant_types == 'ALL':
             self.args.quant_types = [k for k in GGML_TYPE_MAP if k not in ('Q1_0', 'Q2_0')]
+
+        # ── Pre-made configs: skip KLD/CE/optimize, apply+evaluate only ──
+        if getattr(self.args, "configs_dir", None):
+            return self._run_from_configs_dir()
 
         all_modes = ['by-tensor-type', 'by-layer', 'individual', 'by-layer-tensor']
         if getattr(self.args, 'mode', None):
