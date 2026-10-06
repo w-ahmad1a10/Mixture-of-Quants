@@ -9,6 +9,9 @@ Commands:
   eval         Batch evaluate student HF repos against a teacher repo
   build-llama  Download & setup llama.cpp CPU binaries
   map-tensors  Build GGUF <-> PyTorch tensor name mapping
+  run          Run MoQ pipeline: KLD → CE → optimize → apply+evaluate
+               (or apply+evaluate only with --configs-dir)
+  upload       Upload local results to HF dataset repo
 
 Usage:
   python moq.py pipeline --gguf-repo ... --hf-repo ... --model ...
@@ -16,6 +19,8 @@ Usage:
   python moq.py eval --teacher-repo ... --student-repos ... --mapping tensor_map.txt
   python moq.py build-llama --install-system-libs
   python moq.py map-tensors --gguf-repo ... --gguf-file ... --hf-repo ...
+  python moq.py run --model ... --mapping ... --gguf-repo ... --gguf-file ... \
+      --llama-cpp-dir ... --eval-configs '...' --configs-dir configs/ --results-dir results_goal4
 """
 import argparse, gc, json, os, random, subprocess, sys, glob, time
 
@@ -113,19 +118,26 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python moq.py pipeline --gguf-repo bartowski/Qwen_Qwen3-8B-GGUF \
-      --gguf-file Qwen_Qwen3-8B-Q4_K_S.gguf --hf-repo Qwen/Qwen3-8B \
-      --model Qwen/Qwen3-8B --calib-data wiki.test.raw \
-      --llama-cpp-dir /workspace/llama.cpp --base-gguf-local base.gguf \
+  python moq.py pipeline --gguf-repo bartowski/Qwen_Qwen3-8B-GGUF \\
+      --gguf-file Qwen_Qwen3-8B-Q4_K_S.gguf --hf-repo Qwen/Qwen3-8B \\
+      --model Qwen/Qwen3-8B --calib-data wiki.test.raw \\
+      --llama-cpp-dir /workspace/llama.cpp --base-gguf-local base.gguf \\
       --final-imatrix imatrix.gguf --quant-mode by-layer-tensor --layer-block-size 4
 
-  python moq.py quant --model Qwen/Qwen3-8B --mapping tensor_map.txt \
-      --quant-config-dir ./configs/ --llama-cpp-dir /workspace/llama.cpp \
+  python moq.py quant --model Qwen/Qwen3-8B --mapping tensor_map.txt \\
+      --quant-config-dir ./configs/ --llama-cpp-dir /workspace/llama.cpp \\
       --calib-data wiki.test.raw --evaluate-now
 
-  python moq.py eval --teacher-repo org/teacher --student-repos org/s1 org/s2 \
-      --local-model-dir /tmp/models --mapping tensor_map.txt \
+  python moq.py eval --teacher-repo org/teacher --student-repos org/s1 org/s2 \\
+      --local-model-dir /tmp/models --mapping tensor_map.txt \\
       --llama-cpp-dir /workspace/llama.cpp --calib-data wiki.test.raw
+
+  # Goal 4 / apply+evaluate only (skips KLD/CE/optimize):
+  python moq.py run --model Qwen/Qwen3.5-0.8B \\
+      --mapping configs/tensor_maps/tensor_map_qwen.txt \\
+      --gguf-repo unsloth/Qwen3.5-0.8B-GGUF --gguf-file Qwen3.5-0.8B-BF16.gguf \\
+      --llama-cpp-dir /workspace/llama.cpp --imatrix /workspace/Qwen3.5-0.8B.imatrix \\
+      --configs-dir configs/ --eval-configs '[...]' --results-dir results_goal4
         """
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -271,6 +283,15 @@ Examples:
     r.add_argument("--run-name", type=str, default=None)
     r.add_argument("--mode", type=str, default=None, help="Single mode to run (by-tensor-type|by-layer|individual|by-layer-tensor)")
     r.add_argument("--modes", type=str, default=None, help="Comma-separated modes (default: all)")
+    # ── NEW: skip stages / use pre-made configs ──
+    r.add_argument("--skip-kld", action="store_true",
+                   help="Reuse {results_dir}/analysis_{mode}.json instead of running KLD")
+    r.add_argument("--skip-ce", action="store_true",
+                   help="Reuse {results_dir}/ce_{mode}/ instead of running CE")
+    r.add_argument("--skip-optimize", action="store_true",
+                   help="Reuse {results_dir}/configs_{mode}/ instead of running MCKP")
+    r.add_argument("--configs-dir", type=str, default=None,
+                   help="Flat dir of pre-made .txt configs; skips KLD/CE/optimize entirely")
 
     # ─── upload ───
     u = subparsers.add_parser("upload", help="Upload local results to HF dataset repo")
@@ -298,6 +319,11 @@ Examples:
         has_chat = getattr(args, 'dataset_repo', None) is not None
         if not has_text and not has_chat:
             parser.error("Must provide either --calib-data or --dataset-repo")
+
+    # --configs-dir is mutually exclusive with --mode / --modes
+    if args.command == "run" and getattr(args, "configs_dir", None):
+        if getattr(args, "mode", None) or getattr(args, "modes", None):
+            parser.error("--configs-dir is mutually exclusive with --mode/--modes")
 
     if args.command in ("quant", "eval", "pipeline"):
         random.seed(args.seed)
