@@ -143,33 +143,6 @@ def run(name, extra, common):
     return result.returncode
 
 
-def run_quant(name, extra):
-    cmd = [
-        sys.executable, os.path.join(str(REPO_DIR), "scripts", "moq.py"), "quant",
-        "--model", "Qwen/Qwen3.5-0.8B",
-        "--mapping", "configs/tensor_maps/tensor_map_qwen.txt",
-        "--llama-cpp-dir", LLAMA_CPP_DIR,
-        "--imatrix", IMATRIX,
-        "--llama-bin-dir", LLAMA_BIN_DIR,
-        "--trust-remote-code",
-        "--dtype", "float16",
-        "--quant-types", "ALL",
-        "--evaluate-now",
-        "--hf-token", HF_TOKEN,
-        "--results-dir", "results_goal4_" + name,
-    ] + extra
-    print("\n" + "=" * 70)
-    print("  RUNNING:", name)
-    print("  CMD:", " ".join(cmd))
-    print("=" * 70 + "\n")
-    result = subprocess.run(cmd)
-    if result.returncode != 0:
-        print("[ERROR] FAILED:", name, "exit", result.returncode)
-    else:
-        print("[DONE] FINISHED:", name)
-    return result.returncode
-
-
 def main():
     with open(CONFIG_PATH) as f:
         cfg = yaml.safe_load(f)
@@ -230,11 +203,14 @@ def main():
         ], common)
 
     # GOAL 4 — uniform quantization baseline (apply + evaluate only)
+    # Uses moq.py run --configs-dir (skips KLD/CE/optimize; reuses MoQRunner's
+    # identical last-stage apply_and_evaluate).
     for g in cfg["goal4"]:
-        run_quant(g["name"], [
-            "--quant-config", g["quant_config"],
-            "--eval-configs", _json(cfg, g["eval_configs"]),
-        ])
+        run(f"Goal4-{g['name']}", [
+            "--configs-dir", g["configs_dir"],
+            "--eval-configs", _json(cfg, "eval_configs"),
+            "--results-dir", g["results_dir"],
+        ], common)
 
     print("\n" + "=" * 70)
     print("  ALL GOALS FINISHED")
