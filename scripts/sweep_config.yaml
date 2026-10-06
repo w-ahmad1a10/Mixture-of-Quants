@@ -51,12 +51,11 @@ goal2:
   - {name: c4-en, mode: by-tensor-type, hf_dataset_repo: allenai/c4, hf_dataset_config: en, max_seq_length: 512, seq_length: 512, max_samples: 1000, batch_size: 8, num_chunks: 98, seed: 42, eval_configs: eval_configs, results_dir: results_goal2_c4-en}
 
 # GOAL 4 — uniform quantization baseline (apply + evaluate only)
-# Uses moq.py quant, not run. No KLD/CE/MCKP — just apply each uniform config
-# to the teacher model and evaluate on eval_configs. The control group.
+# Uses moq.py run --configs-dir. No KLD/CE/MCKP — MoQRunner skips straight to
+# apply_and_evaluate on the pre-made configs in configs_dir, using the exact
+# same last-stage code as Goals 1/2/3. The control group.
 goal4:
-  - {name: "uniform-2.0", quant_config: /content/Mixture-of-Quants/configs/config_2.0.txt, eval_configs: eval_configs, results_dir: results_goal4_uniform-2.0}
-  - {name: "uniform-3.0", quant_config: /content/Mixture-of-Quants/configs/config_3.0.txt, eval_configs: eval_configs, results_dir: results_goal4_uniform-3.0}
-  - {name: "uniform-4.0", quant_config: /content/Mixture-of-Quants/configs/config_4.0.txt, eval_configs: eval_configs, results_dir: results_goal4_uniform-4.0}
+  - {name: uniform, configs_dir: /content/Mixture-of-Quants/configs, results_dir: results_goal4}
 
 # GOAL 3 — dataset repo sample count sweep, by-tensor-type
 goal3:
