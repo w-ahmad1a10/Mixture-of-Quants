@@ -61,55 +61,55 @@ def quantize_tensor(w, bits, symmetric, granularity, group_size=None):
     if w.dim() < 2:
         return w
     rows, cols = w.shape[0], w.shape[1]
-    out = torch.empty_like(w)
+    if symmetric:
+        qmax = (1 << (bits - 1)) - 1
+    else:
+        qmax = (1 << bits) - 1
     if granularity == "per_tensor":
-        # compute params on flattened
-        maxabs = w.abs().max().item() if symmetric else None
         if symmetric:
-            qmax = (1 << (bits - 1)) - 1
-            scale = (maxabs / qmax) if (maxabs and qmax) else 1.0
-            zp = 0
+            maxabs = w.abs().max()
+            scale = (maxabs / qmax) if (maxabs > 0 and qmax > 0) else torch.tensor(1.0, device=w.device)
+            zp = torch.tensor(0, device=w.device)
         else:
-            qmax = (1 << bits) - 1
-            wmin = w.min().item(); wmax = w.max().item()
-            scale = (wmax - wmin) / qmax if wmax > wmin else 1.0
-            zp = int(round(-wmin / scale)) if scale else 0
-            zp = max(0, min(qmax, zp))
+            wmin = w.min()
+            wmax = w.max()
+            scale = ((wmax - wmin) / qmax) if (wmax > wmin) else torch.tensor(1.0, device=w.device)
+            zp = torch.round(-wmin / scale).clamp(0, qmax)
         return quantize_with_params(w, bits, symmetric, scale, zp)
     if granularity == "per_channel":
-        for r in range(rows):
-            if symmetric:
-                ma = w[r].abs().max().item()
-                qmax = (1 << (bits - 1)) - 1
-                scale = (ma / qmax) if (ma and qmax) else 1.0
-                zp = 0
-            else:
-                qmax = (1 << bits) - 1
-                wmin = w[r].min().item(); wmax = w[r].max().item()
-                scale = (wmax - wmin) / qmax if wmax > wmin else 1.0
-                zp = int(round(-wmin / scale)) if scale else 0
-                zp = max(0, min(qmax, zp))
-            out[r] = quantize_with_params(w[r], bits, symmetric, scale, zp)
-        return out
+        if symmetric:
+            maxabs = w.abs().amax(dim=1, keepdim=True)
+            scale = torch.where(maxabs > 0, maxabs / qmax, torch.ones_like(maxabs))
+            zp = torch.zeros_like(scale)
+        else:
+            wmin = w.amin(dim=1, keepdim=True)
+            wmax = w.amax(dim=1, keepdim=True)
+            scale = torch.where(wmax > wmin, (wmax - wmin) / qmax, torch.ones_like(wmin))
+            zp = torch.round(-wmin / scale).clamp(0, qmax)
+        return quantize_with_params(w, bits, symmetric, scale, zp)
     if granularity == "per_group":
         gs = group_size or 32
-        for r in range(rows):
-            for start in range(0, cols, gs):
-                end = min(start + gs, cols)
-                block = w[r, start:end]
-                if symmetric:
-                    ma = block.abs().max().item()
-                    qmax = (1 << (bits - 1)) - 1
-                    scale = (ma / qmax) if (ma and qmax) else 1.0
-                    zp = 0
-                else:
-                    qmax = (1 << bits) - 1
-                    wmin = block.min().item(); wmax = block.max().item()
-                    scale = (wmax - wmin) / qmax if wmax > wmin else 1.0
-                    zp = int(round(-wmin / scale)) if scale else 0
-                    zp = max(0, min(qmax, zp))
-                out[r, start:end] = quantize_with_params(block, bits, symmetric, scale, zp)
-        return out
+        # pad columns to multiple of gs if needed
+        pad = (gs - (cols % gs)) % gs
+        if pad:
+            w = torch.nn.functional.pad(w, (0, pad))
+        new_cols = w.shape[1]
+        ng = new_cols // gs
+        wg = w.view(rows, ng, gs)
+        if symmetric:
+            maxabs = wg.abs().amax(dim=2, keepdim=True)
+            scale = torch.where(maxabs > 0, maxabs / qmax, torch.ones_like(maxabs))
+            zp = torch.zeros_like(scale)
+        else:
+            wmin = wg.amin(dim=2, keepdim=True)
+            wmax = wg.amax(dim=2, keepdim=True)
+            scale = torch.where(wmax > wmin, (wmax - wmin) / qmax, torch.ones_like(wmin))
+            zp = torch.round(-wmin / scale).clamp(0, qmax)
+        dq = quantize_with_params(wg, bits, symmetric, scale, zp)
+        dq = dq.view(rows, new_cols)
+        if pad:
+            dq = dq[:, :cols]
+        return dq
     return w
 
 
