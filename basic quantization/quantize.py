@@ -158,7 +158,7 @@ def main():
     parser.add_argument("--dtype", default="float16")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--hf-token", default=None)
-    parser.add_argument("--hf-repo", default="deepresearch1a10/basic-quantization-models")
+    parser.add_argument("--hf-repo", default="w-ahmad/basic-quantization-models")
     parser.add_argument("--output-dir", default="/kaggle/working/models")
     args = parser.parse_args()
 

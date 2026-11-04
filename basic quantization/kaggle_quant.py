@@ -20,7 +20,7 @@ def main():
     run([sys.executable, "basic quantization/quantize.py",
          "--model", "Qwen/Qwen3-0.6B",
          "--dtype", "float16",
-         "--hf-repo", "deepresearch1a10/basic-quantization-models",
+         "--hf-repo", "w-ahmad/basic-quantization-models",
          "--output-dir", "/kaggle/working/models"])
     print("QUANT_DONE", flush=True)
 

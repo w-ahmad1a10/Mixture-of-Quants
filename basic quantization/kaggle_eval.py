@@ -20,7 +20,7 @@ def main():
     run([sys.executable, "basic quantization/eval.py",
          "--model", "Qwen/Qwen3-0.6B",
          "--dtype", "float16",
-         "--hf-repo", "deepresearch1a10/basic-quantization-models",
+         "--hf-repo", "w-ahmad/basic-quantization-models",
          "--mmlu-samples", "100",
          "--mmlu-batch-size", "4",
          "--text-chunks", "500",

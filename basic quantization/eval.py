@@ -238,7 +238,7 @@ def eval_mmlu(model, tokenizer, device, max_samples, orig_probs, batch_size=4):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-0.6B")
-    parser.add_argument("--hf-repo", default="deepresearch1a10/basic-quantization-models")
+    parser.add_argument("--hf-repo", default="w-ahmad/basic-quantization-models")
     parser.add_argument("--hf-token", default=None)
     parser.add_argument("--dtype", default="float16")
     parser.add_argument("--seed", type=int, default=42)
@@ -364,8 +364,13 @@ def main():
         # upload results
         if api is not None:
             try:
+                results_repo = "w-ahmad/basic-quantization-results"
+                try:
+                    create_repo(results_repo, repo_type="model", exist_ok=True, token=hf_token)
+                except Exception:
+                    pass
                 api.upload_file(path_or_fileobj=args.output, path_in_repo=f"results_{name}.json",
-                                repo_id=args.hf_repo, repo_type="model", token=hf_token)
+                                repo_id=results_repo, repo_type="model", token=hf_token)
                 print(f"  Uploaded results for {name}", flush=True)
             except Exception as e:
                 print(f"  Upload failed: {e}", flush=True)
