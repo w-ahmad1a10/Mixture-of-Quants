@@ -20,3 +20,7 @@ MoQ-EXP/
 # Local model artifacts
 *.bin
 *.safetensors
+
+# Watcher bookkeeping
+watcher.lock
+watcher.log
