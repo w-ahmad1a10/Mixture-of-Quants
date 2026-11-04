@@ -51,7 +51,7 @@ for d in sorted(data, key=lambda r: r["total_bits"]):
     print(f"{d['name']}, {d['total_bits']}, {d['mse']:.6e}")
 
 # plot: 2x2 grid by bit width, color by sym/asym, marker by granularity, annotate group size
-fig, axes = plt.subplots(2, 2, figsize=(14, 10), sharey=True)
+fig, axes = plt.subplots(2, 2, figsize=(14, 10), sharey=False)
 bit_list = [3, 4, 6, 8]
 for ax, b in zip(axes.flat, bit_list):
     sub = [d for d in data if d["bits"] == b]
@@ -68,6 +68,8 @@ for ax, b in zip(axes.flat, bit_list):
     ax.set_title(f"{b}-bit", fontsize=12, fontweight="bold")
     ax.set_xlabel("Total storage (bits)")
     ax.grid(True, which="both", alpha=0.3)
+    ys = [d["mse"] for d in sub]
+    ax.set_ylim(min(ys) * 0.5, max(ys) * 2.0)
 axes[0, 0].set_ylabel("MSE (log scale)")
 axes[1, 0].set_ylabel("MSE (log scale)")
 
@@ -80,7 +82,7 @@ fig.legend(handles=sym_handles + gran_handles, loc="lower center", ncol=4, fonts
 fig.suptitle("Quantization tradeoff: storage size vs MSE (log scale)\n"
              "One fixed 512x512 tensor, one fixed input, 48 variants", fontsize=13)
 plt.tight_layout(rect=[0, 0.06, 1, 0.95])
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mse_graph_v2.png")
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mse_graph_v3.png")
 plt.savefig(out, dpi=150)
 print("\nSaved graph to", out)
 plt.close()
