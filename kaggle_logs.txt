@@ -1,0 +1,62 @@
+[{"stream_name":"stdout","time":0.869676838,"data":"RUNNING: git clone https://github.com/w-ahmad1a10/Mixture-of-Quants.git /kaggle/working/Mixture-of-Quants\n"}
+,{"stream_name":"stderr","time":0.9331768,"data":"Cloning into '/kaggle/working/Mixture-of-Quants'...\n"}
+,{"stream_name":"stdout","time":1.713701574,"data":"RUNNING: /usr/bin/python3 -m pip install -q torch transformers datasets huggingface_hub tqdm accelerate\n"}
+,{"stream_name":"stdout","time":5.871548031,"data":"RUNNING: /usr/bin/python3 basic quantization/run_basic.py --model Qwen/Qwen3-0.6B --dtype float16 --mmlu-samples 500 --text-chunks 500 --seq-length 512 --max-docs 50 --output /kaggle/working/basic_results.json\n"}
+,{"stream_name":"stderr","time":38.834156782,"data":"Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.\n"}
+,{"stream_name":"stderr","time":40.751540946,"data":"[transformers] `torch_dtype` is deprecated! Use `dtype` instead!\n"}
+,{"stream_name":"stderr","time":53.691074437,"data":"\rLoading weights:   0%|          | 0/311 [00:00\u003c?, ?it/s]\rLoading weights:   0%|          | 1/311 [00:00\u003c02:07,  2.43it/s]\rLoading weights:   3%|▎         | 10/311 [00:00\u003c00:12, 25.01it/s]\rLoading weights:  78%|███████▊  | 244/311 [00:00\u003c00:00, 648.08it/s]\rLoading weights: 100%|██████████| 311/311 [00:00\u003c00:00, 439.06it/s]\n"}
+,{"stream_name":"stderr","time":54.844118597,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":54.845429119,"data":"  File \"/kaggle/working/Mixture-of-Quants/basic quantization/run_basic.py\", line 373, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":54.845451306,"data":"    main()\n"}
+,{"stream_name":"stderr","time":54.84545598,"data":"    ~~~~^^\n"}
+,{"stream_name":"stderr","time":54.84546016,"data":"  File \"/kaggle/working/Mixture-of-Quants/basic quantization/run_basic.py\", line 240, in main\n"}
+,{"stream_name":"stderr","time":54.845464823,"data":"    text_samples[name] = build_text_samples(tokenizer, repo, cfg, split, args.seq_length, args.max_docs, args.text_chunks, hf_token)\n"}
+,{"stream_name":"stderr","time":54.845469965,"data":"                         ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":54.845474462,"data":"  File \"/kaggle/working/Mixture-of-Quants/basic quantization/run_basic.py\", line 16, in build_text_samples\n"}
+,{"stream_name":"stderr","time":54.845479195,"data":"    ds = load_dataset(repo, config, split=split, streaming=True, token=hf_token) if config else load_dataset(repo, split=split, streaming=True, token=hf_token)\n"}
+,{"stream_name":"stderr","time":54.84548378,"data":"                                                                                                ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":54.845488386,"data":"  File \"/usr/local/lib/python3.13/dist-packages/datasets/load.py\", line 1688, in load_dataset\n"}
+,{"stream_name":"stderr","time":54.845492699,"data":"    builder_instance = load_dataset_builder(\n"}
+,{"stream_name":"stderr","time":54.845496533,"data":"        path=path,\n"}
+,{"stream_name":"stderr","time":54.845500681,"data":"    ...\u003c10 lines\u003e...\n"}
+,{"stream_name":"stderr","time":54.845504843,"data":"        **config_kwargs,\n"}
+,{"stream_name":"stderr","time":54.84550913,"data":"    )\n"}
+,{"stream_name":"stderr","time":54.845513224,"data":"  File \"/usr/local/lib/python3.13/dist-packages/datasets/load.py\", line 1315, in load_dataset_builder\n"}
+,{"stream_name":"stderr","time":54.845517572,"data":"    dataset_module = dataset_module_factory(\n"}
+,{"stream_name":"stderr","time":54.845536651,"data":"        path,\n"}
+,{"stream_name":"stderr","time":54.845540706,"data":"    ...\u003c5 lines\u003e...\n"}
+,{"stream_name":"stderr","time":54.845544051,"data":"        cache_dir=cache_dir,\n"}
+,{"stream_name":"stderr","time":54.845547224,"data":"    )\n"}
+,{"stream_name":"stderr","time":54.845550237,"data":"  File \"/usr/local/lib/python3.13/dist-packages/datasets/load.py\", line 1201, in dataset_module_factory\n"}
+,{"stream_name":"stderr","time":54.845554,"data":"    raise e1 from None\n"}
+,{"stream_name":"stderr","time":54.845557484,"data":"  File \"/usr/local/lib/python3.13/dist-packages/datasets/load.py\", line 1158, in dataset_module_factory\n"}
+,{"stream_name":"stderr","time":54.845561055,"data":"    raise DatasetNotFoundError(f\"Dataset '{path}' doesn't exist on the Hub or cannot be accessed.\") from e\n"}
+,{"stream_name":"stderr","time":54.845564495,"data":"datasets.exceptions.DatasetNotFoundError: Dataset 'HuggingFaceFW/fineweb-edu' doesn't exist on the Hub or cannot be accessed.\n"}
+,{"stream_name":"stderr","time":59.298494897,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":59.299482267,"data":"  File \"/kaggle/src/script.py\", line 53, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":59.299500689,"data":"    main()\n"}
+,{"stream_name":"stderr","time":59.299505108,"data":"    ~~~~^^\n"}
+,{"stream_name":"stderr","time":59.299508904,"data":"  File \"/kaggle/src/script.py\", line 23, in main\n"}
+,{"stream_name":"stderr","time":59.299529106,"data":"    run([sys.executable, \"basic quantization/run_basic.py\",\n"}
+,{"stream_name":"stderr","time":59.299534191,"data":"    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":59.29953842,"data":"         \"--model\", \"Qwen/Qwen3-0.6B\",\n"}
+,{"stream_name":"stderr","time":59.299542659,"data":"         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":59.299546815,"data":"    ...\u003c4 lines\u003e...\n"}
+,{"stream_name":"stderr","time":59.299550548,"data":"         \"--max-docs\", \"50\",\n"}
+,{"stream_name":"stderr","time":59.299554258,"data":"         ^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":59.29955784,"data":"         \"--output\", \"/kaggle/working/basic_results.json\"])\n"}
+,{"stream_name":"stderr","time":59.299561721,"data":"         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":59.299565348,"data":"  File \"/kaggle/src/script.py\", line 13, in run\n"}
+,{"stream_name":"stderr","time":59.29956899,"data":"    subprocess.run(cmd, check=True)\n"}
+,{"stream_name":"stderr","time":59.299574288,"data":"    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":59.299581337,"data":"  File \"/usr/lib/python3.13/subprocess.py\", line 578, in run\n"}
+,{"stream_name":"stderr","time":59.299583918,"data":"    raise CalledProcessError(retcode, process.args,\n"}
+,{"stream_name":"stderr","time":59.299586366,"data":"                             output=stdout, stderr=stderr)\n"}
+,{"stream_name":"stderr","time":59.299609048,"data":"subprocess.CalledProcessError: Command '['/usr/bin/python3', 'basic quantization/run_basic.py', '--model', 'Qwen/Qwen3-0.6B', '--dtype', 'float16', '--mmlu-samples', '500', '--text-chunks', '500', '--seq-length', '512', '--max-docs', '50', '--output', '/kaggle/working/basic_results.json']' returned non-zero exit status 1.\n"}
+,{"stream_name":"stderr","time":61.375841996,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":61.375872284,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":61.633263081,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":61.633307964,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":62.493992092,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":63.490076885,"data":"[NbConvertApp] Writing 280279 bytes to __results__.html\n"}
+]
