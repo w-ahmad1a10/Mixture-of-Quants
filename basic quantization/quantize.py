@@ -205,6 +205,9 @@ def main():
         # upload folder
         api.upload_folder(folder_path=out_dir, path_in_repo=name, repo_id=args.hf_repo, repo_type="model", token=hf_token)
         print(f"  Uploaded {name} to {args.hf_repo}", flush=True)
+        import shutil
+        shutil.rmtree(out_dir, ignore_errors=True)
+        print(f"  Deleted local copy of {name}", flush=True)
         restore(originals)
         gc.collect()
         if device.type == "cuda":
