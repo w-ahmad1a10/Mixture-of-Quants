@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from moq.moq_core import SKIP_PATTERNS, load_model
 from basic_quantization.affine import quantize_tensor, layer_params, quantize_with_params
 
-TEACHER_TOPK = 1000
+TEACHER_TOPK = 10
 
 
 def build_text_samples(tokenizer, repo, config, split, seq_length, max_docs, num_chunks):
@@ -42,6 +42,7 @@ def eval_text(model, samples, tokenizer, device, cached=None):
     ce_tokens = 0
     kld_vals = []
     ear_vals = []
+    mass_vals = []
     with torch.inference_mode():
         for idx, s in enumerate(samples):
             ids = s.unsqueeze(0).to(device)
@@ -58,13 +59,10 @@ def eval_text(model, samples, tokenizer, device, cached=None):
                 ce = F.cross_entropy(flat_l[flat_m], flat_y[flat_m], reduction="sum")
                 ce_sum += ce.item()
                 ce_tokens += int(flat_m.sum().item())
-            # KLD and EAR using cached original top-k if available
             if cached is not None and idx < len(cached):
                 tvals, tinds = cached[idx]
                 tvals = tvals.to(device)
                 tinds = tinds.to(device).long()
-                # student probs at teacher top indices
-                # align shapes: logits [1, seq, vocab]; teacher cached for seq positions
                 if tinds.dim() == 2:
                     for i in range(tinds.size(0)):
                         s_lp = lp[0, i].gather(0, tinds[i])
@@ -77,22 +75,26 @@ def eval_text(model, samples, tokenizer, device, cached=None):
                         kld_vals.append(kld.item())
                         ear = torch.sum(torch.minimum(t_p, s_p)).item()
                         ear_vals.append(ear)
+                        mass_vals.append(t_p.sum().item())
     ppl = math.exp(ce_sum / ce_tokens) if ce_tokens > 0 else float("inf")
+    top10_mass = (sum(mass_vals) / len(mass_vals)) if mass_vals else 0.0
+    ear_avg = (sum(ear_vals) / len(ear_vals)) if ear_vals else 0.0
     return {
         "mean_kld": (sum(kld_vals) / len(kld_vals)) if kld_vals else 0.0,
         "ppl": ppl,
-        "ear": (sum(ear_vals) / len(ear_vals)) if ear_vals else 0.0,
+        "ear": ear_avg,
+        "top10_mass": top10_mass,
+        "normalized_ear": (ear_avg / top10_mass) if top10_mass > 0 else 0.0,
         "tokens": ce_tokens,
     }
 
 
-def eval_mmlu(model, tokenizer, device, max_samples):
+def eval_mmlu(model, tokenizer, device, max_samples, orig_probs=None):
     from datasets import load_dataset
     ds = load_dataset("cais/mmlu", "all", split="test")
     correct = 0
     total = 0
     kld_sum = 0.0
-    ear_sum = 0.0
     ce_sum = 0.0
     ce_tokens = 0
     with torch.inference_mode():
@@ -107,7 +109,6 @@ def eval_mmlu(model, tokenizer, device, max_samples):
             mask = enc["attention_mask"].to(device)
             logits = model(input_ids=ids, attention_mask=mask).logits
             lp = F.log_softmax(logits, dim=-1)
-            # find answer start
             answer_ids = tokenizer("Answer:", add_special_tokens=False)["input_ids"]
             input_ids = ids[0]
             answer_start = None
@@ -123,16 +124,18 @@ def eval_mmlu(model, tokenizer, device, max_samples):
                 choice_tokens.append(t[0] if t else tokenizer.eos_token_id)
             lp_choices = [lp[0, answer_start, tid].item() for tid in choice_tokens]
             student_probs = F.softmax(torch.tensor(lp_choices, device=device), dim=0)
-            # original not available here; EAR approximated as max prob (agreement proxy) -> store student max prob as ear contribution
-            # We compute EAR later relative; store raw student probs list impossible. Store max prob.
-            ear_sum += student_probs.max().item()
             pred = int(torch.argmax(student_probs).item())
             if pred == int(row["answer"]):
                 correct += 1
-            # CE on answer token
             ans_tid = choice_tokens[int(row["answer"])]
             ce_sum += -lp[0, answer_start, ans_tid].item()
             ce_tokens += 1
+            # KLD vs original if available
+            if orig_probs is not None and total < len(orig_probs):
+                op = orig_probs[total]
+                sp = student_probs
+                kld = torch.sum(op * torch.log(torch.clamp(op, 1e-10) / torch.clamp(sp, 1e-10))).item()
+                kld_sum += kld
             total += 1
     ppl = math.exp(ce_sum / ce_tokens) if ce_tokens > 0 else float("inf")
     return {
@@ -140,7 +143,7 @@ def eval_mmlu(model, tokenizer, device, max_samples):
         "correct": correct,
         "total": total,
         "ppl": ppl,
-        "ear": ear_sum / total if total else 0.0,
+        "mean_kld": (kld_sum / total) if total else 0.0,
     }
 
 
@@ -198,7 +201,7 @@ def main():
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dtype = getattr(torch, args.dtype)
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token, trust_remote_code=True)
@@ -265,12 +268,47 @@ def main():
     base_text = {}
     for name, samples in text_samples.items():
         base_text[name] = eval_text(model, samples, tokenizer, device, text_cached[name])
-    base_mmlu = eval_mmlu(model, tokenizer, device, args.mmlu_samples)
+    # cache original mmlu probs
+    orig_mmlu_probs = []
+    with torch.inference_mode():
+        from datasets import load_dataset
+        ds = load_dataset("cais/mmlu", "all", split="test")
+        cnt = 0
+        for row in ds:
+            if cnt >= args.mmlu_samples:
+                break
+            choices = row["choices"]
+            prompt = (f"{row['question'].strip()}\n"
+                      f"A. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\nAnswer:")
+            enc = tokenizer(prompt, return_tensors="pt")
+            ids = enc["input_ids"].to(device)
+            mask = enc["attention_mask"].to(device)
+            logits = model(input_ids=ids, attention_mask=mask).logits
+            lp = F.log_softmax(logits, dim=-1)
+            answer_ids = tokenizer("Answer:", add_special_tokens=False)["input_ids"]
+            input_ids = ids[0]
+            answer_start = None
+            for pos in range(len(input_ids) - len(answer_ids) + 1):
+                if all(input_ids[pos + j].item() == answer_ids[j] for j in range(len(answer_ids))):
+                    answer_start = pos + len(answer_ids)
+                    break
+            if answer_start is None or answer_start >= logits.size(1):
+                cnt += 1
+                continue
+            choice_tokens = []
+            for letter in ["A", "B", "C", "D"]:
+                t = tokenizer(" " + letter, add_special_tokens=False)["input_ids"]
+                choice_tokens.append(t[0] if t else tokenizer.eos_token_id)
+            lp_choices = [lp[0, answer_start, tid].item() for tid in choice_tokens]
+            orig_mmlu_probs.append(F.softmax(torch.tensor(lp_choices, device=device), dim=0).detach().cpu())
+            cnt += 1
+
+    base_mmlu = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs)
     results["baseline"] = {"text": base_text, "mmlu": base_mmlu}
 
     variants = []
     for symmetric in (True, False):
-        for bits in (3, 4, 6, 8, 12):
+        for bits in (3, 4, 6, 8):
             variants.append((symmetric, "per_tensor", None, bits))
             variants.append((symmetric, "per_channel", None, bits))
             variants.append((symmetric, "per_layer", None, bits))
@@ -285,7 +323,7 @@ def main():
         text_res = {}
         for name, samples in text_samples.items():
             text_res[name] = eval_text(model, samples, tokenizer, device, text_cached[name])
-        mmlu_res = eval_mmlu(model, tokenizer, device, args.mmlu_samples)
+        mmlu_res = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs)
         restore(originals)
         gc.collect()
         results["variants"].append({
