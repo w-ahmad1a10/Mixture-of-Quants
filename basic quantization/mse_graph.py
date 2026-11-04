@@ -80,7 +80,7 @@ fig.legend(handles=sym_handles + gran_handles, loc="lower center", ncol=4, fonts
 fig.suptitle("Quantization tradeoff: storage size vs MSE (log scale)\n"
              "One fixed 512x512 tensor, one fixed input, 48 variants", fontsize=13)
 plt.tight_layout(rect=[0, 0.06, 1, 0.95])
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mse_graph.png")
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mse_graph_v2.png")
 plt.savefig(out, dpi=150)
 print("\nSaved graph to", out)
 plt.close()
