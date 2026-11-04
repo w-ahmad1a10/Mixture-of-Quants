@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-REPO_URL = "https://github.com/deepresearch1a10/Mixture-of-Quants.git"
+REPO_URL = "https://github.com/w-ahmad1a10/Mixture-of-Quants.git"
 REPO_DIR = "/kaggle/working/Mixture-of-Quants"
 TOKEN_PATH = "/kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt"
 
