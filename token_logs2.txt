@@ -1,0 +1,11 @@
+[{"stream_name":"stdout","time":0.885571867,"data":"checking: /kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt\n"}
+,{"stream_name":"stdout","time":1.350588327,"data":"token loaded, length: 37\n"}
+,{"stream_name":"stdout","time":3.321485377,"data":"whoami ok: user w-ahmad\n"}
+,{"stream_name":"stdout","time":3.321531163,"data":"TEST_DONE\n"}
+,{"stream_name":"stderr","time":6.342957381,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":6.343004635,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":6.828873875,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":6.828931256,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":8.932768625,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":10.42584732,"data":"[NbConvertApp] Writing 275920 bytes to __results__.html\n"}
+]
