@@ -154,16 +154,21 @@ def eval_mmlu(model, tokenizer, device, max_samples, orig_probs=None, hf_token=N
     }
 
 
-def apply_quantization(model, mapping, bits, symmetric, granularity, group_size, layer_mode):
+def apply_quantization(model, bits, symmetric, granularity, group_size, layer_mode):
     originals = []
-    # per layer: compute shared params across all quantizable weights in each layer
+    def is_quantizable(name, module):
+        if not hasattr(module, "weight"):
+            return False
+        if module.weight.dim() < 2:
+            return False
+        nl = name.lower()
+        if any(p in nl for p in SKIP_PATTERNS):
+            return False
+        return True
     if layer_mode:
         layers = {}
         for name, module in model.named_modules():
-            if not hasattr(module, "weight"):
-                continue
-            gguf = mapping.get(name)
-            if not gguf or any(p in name.lower() for p in SKIP_PATTERNS) or any(p in gguf.lower() for p in SKIP_PATTERNS):
+            if not is_quantizable(name, module):
                 continue
             layer_key = name.split(".")[2] if "layers." in name else "other"
             layers.setdefault(layer_key, []).append((name, module))
@@ -176,10 +181,7 @@ def apply_quantization(model, mapping, bits, symmetric, granularity, group_size,
                 module.weight.data = q.to(module.weight.dtype).to(module.weight.device)
     else:
         for name, module in model.named_modules():
-            if not hasattr(module, "weight"):
-                continue
-            gguf = mapping.get(name)
-            if not gguf or any(p in name.lower() for p in SKIP_PATTERNS) or any(p in gguf.lower() for p in SKIP_PATTERNS):
+            if not is_quantizable(name, module):
                 continue
             originals.append((module, module.weight.data.clone()))
             q = quantize_tensor(module.weight.data, bits, symmetric, granularity, group_size)
@@ -235,15 +237,8 @@ def main():
     model.eval()
     model.config.use_cache = False
 
+    # No mapping file needed for basic affine quantization.
     mapping = {}
-    if args.mapping and os.path.exists(args.mapping):
-        with open(args.mapping) as f:
-            for line in f:
-                line = line.split("#")[0].strip()
-                if "=" in line:
-                    left, right = line.split("=", 1)
-                    mapping[left.strip()] = right.strip()
-
     # text datasets
     text_sets = {
         "fineweb-edu": ("HuggingFaceFW/fineweb-edu", None, "train"),
@@ -346,7 +341,7 @@ def main():
         print(f"\n=== Variant {vi}/{total_variants}: {granularity} | symmetric={symmetric} | group={gs} | bits={bits} ===", flush=True)
         layer_mode = (granularity == "per_layer")
         print("  Quantizing...", flush=True)
-        originals = apply_quantization(model, mapping, bits, symmetric, granularity, gs, layer_mode)
+        originals = apply_quantization(model, bits, symmetric, granularity, gs, layer_mode)
         text_res = {}
         for name, samples in text_samples.items():
             print(f"  Evaluating text: {name}", flush=True)
