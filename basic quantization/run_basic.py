@@ -19,7 +19,7 @@ def load_model(model_path, torch_dtype, trust_remote_code, hf_token, device):
     model.eval()
     model.config.use_cache = False
     return model, device
-from basic_quantization.affine import quantize_tensor, layer_params, quantize_with_params
+from affine import quantize_tensor, layer_params, quantize_with_params
 
 TEACHER_TOPK = 10
 
