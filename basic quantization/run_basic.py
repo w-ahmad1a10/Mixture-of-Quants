@@ -214,7 +214,7 @@ def main():
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dtype = getattr(torch, args.dtype)
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, token=hf_token, trust_remote_code=True)
