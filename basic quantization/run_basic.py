@@ -337,6 +337,29 @@ def main():
         with open(args.output, "w") as f:
             json.dump(results, f, indent=2)
 
+    # Upload results to Hugging Face
+    hf_token_path = "/kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt"
+    if os.path.exists(hf_token_path):
+        try:
+            with open(hf_token_path) as f:
+                hf_token = f.read().strip()
+            from huggingface_hub import HfApi, create_repo
+            repo_id = "deepresearch1a10/basic-quantization-results"
+            create_repo(repo_id, repo_type="model", exist_ok=True, token=hf_token)
+            api = HfApi(token=hf_token)
+            api.upload_file(
+                path_or_fileobj=args.output,
+                path_in_repo=os.path.basename(args.output),
+                repo_id=repo_id,
+                repo_type="model",
+                token=hf_token,
+            )
+            print("Uploaded results to", repo_id)
+        except Exception as e:
+            print("HF upload failed:", e)
+    else:
+        print("HF token file not found; skipping upload.")
+
     print("\nDone. Results saved to", args.output)
 
 
