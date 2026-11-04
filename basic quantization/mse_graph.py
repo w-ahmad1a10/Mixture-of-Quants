@@ -42,44 +42,44 @@ for symmetric, granularity, gs, bits in VARIANTS:
         "ng": ng,
     })
 
+# drop per_layer because it equals per_tensor for a single tensor
+data = [d for d in data if d["granularity"] != "per_layer"]
+
 # print table
 print("name, total_bits, mse")
 for d in sorted(data, key=lambda r: r["total_bits"]):
     print(f"{d['name']}, {d['total_bits']}, {d['mse']:.6e}")
 
-# plot
-fig, ax = plt.subplots(figsize=(10, 7))
-colors = {3: "red", 4: "orange", 6: "green", 8: "blue"}
-markers = {"per_tensor": "o", "per_channel": "s", "per_layer": "^", "per_group": "D"}
-for d in data:
-    ax.scatter(d["total_bits"], d["mse"],
-               c=colors[d["bits"]], marker=markers[d["granularity"]],
-               s=60, alpha=0.8, edgecolors="black", linewidths=0.5)
-# annotate a few
-for d in data:
-    if d["granularity"] == "per_group" and d["gs"] == 32 and d["bits"] in (3, 8):
-        ax.annotate(d["name"], (d["total_bits"], d["mse"]), fontsize=7,
-                    xytext=(5, 5), textcoords="offset points")
+# plot: 2x2 grid by bit width, color by sym/asym, marker by granularity, annotate group size
+fig, axes = plt.subplots(2, 2, figsize=(14, 10), sharey=True)
+bit_list = [3, 4, 6, 8]
+for ax, b in zip(axes.flat, bit_list):
+    sub = [d for d in data if d["bits"] == b]
+    for d in sub:
+        color = "tab:blue" if d["symmetric"] else "tab:red"
+        marker = {"per_tensor": "o", "per_channel": "s", "per_layer": "^", "per_group": "D"}[d["granularity"]]
+        size = 90 if d["granularity"] == "per_group" else 60
+        ax.scatter(d["total_bits"], d["mse"], c=color, marker=marker, s=size,
+                   alpha=0.85, edgecolors="black", linewidths=0.5)
+        if d["granularity"] == "per_group":
+            ax.annotate(f"g{d['gs']}", (d["total_bits"], d["mse"]), fontsize=7,
+                        xytext=(4, 4), textcoords="offset points")
+    ax.set_yscale("log")
+    ax.set_title(f"{b}-bit", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Total storage (bits)")
+    ax.grid(True, which="both", alpha=0.3)
+axes[0, 0].set_ylabel("MSE (log scale)")
+axes[1, 0].set_ylabel("MSE (log scale)")
 
-ax.set_yscale("log")
-ax.set_xlabel("Total storage size (bits): weights + scales + zero points")
-ax.set_ylabel("MSE (log scale)")
-ax.set_title("Quantization tradeoff: storage size vs reconstruction error\n"
-             "One fixed 512x512 tensor, one fixed input, 48 variants")
-ax.grid(True, which="both", alpha=0.3)
-
-# legend for bits
 from matplotlib.lines import Line2D
-bit_handles = [Line2D([0], [0], marker="o", color="w", markerfacecolor=colors[b],
-                      label=f"{b}-bit", markersize=8) for b in (3, 4, 6, 8)]
-gran_handles = [Line2D([0], [0], marker=markers[g], color="w", markerfacecolor="gray",
-                       label=g.replace("per_", ""), markersize=8)
-                for g in ("per_tensor", "per_channel", "per_layer", "per_group")]
-leg1 = ax.legend(handles=bit_handles, title="Bits", loc="upper right")
-ax.add_artist(leg1)
-ax.legend(handles=gran_handles, title="Granularity", loc="lower left")
-
-plt.tight_layout()
+sym_handles = [Line2D([0], [0], marker="o", color="w", markerfacecolor="tab:blue", label="symmetric", markersize=8),
+               Line2D([0], [0], marker="o", color="w", markerfacecolor="tab:red", label="asymmetric", markersize=8)]
+gran_handles = [Line2D([0], [0], marker=m, color="w", markerfacecolor="gray", label=g.replace("per_", ""), markersize=8)
+                for g, m in (("per_tensor", "o"), ("per_channel", "s"), ("per_group", "D"))]
+fig.legend(handles=sym_handles + gran_handles, loc="lower center", ncol=4, fontsize=9)
+fig.suptitle("Quantization tradeoff: storage size vs MSE (log scale)\n"
+             "One fixed 512x512 tensor, one fixed input, 48 variants", fontsize=13)
+plt.tight_layout(rect=[0, 0.06, 1, 0.95])
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mse_graph.png")
 plt.savefig(out, dpi=150)
 print("\nSaved graph to", out)
