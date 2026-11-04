@@ -5,8 +5,20 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 from tqdm import tqdm
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from moq.moq_core import SKIP_PATTERNS, load_model
+SKIP_PATTERNS = (
+    'norm', 'ln', 'rotary', 'bias', 'input_layernorm', 'ssm_conv1d', 'conv1d',
+    'post_attention_layernorm', 'norm.weight', 'ln_f', 'ln_1', 'ln_2', 'conv.conv'
+)
+
+def load_model(model_path, torch_dtype, trust_remote_code, hf_token, device):
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path, torch_dtype=torch_dtype, trust_remote_code=trust_remote_code,
+        low_cpu_mem_usage=True, token=hf_token
+    )
+    model.to(device)
+    model.eval()
+    model.config.use_cache = False
+    return model, device
 from basic_quantization.affine import quantize_tensor, layer_params, quantize_with_params
 
 TEACHER_TOPK = 10
