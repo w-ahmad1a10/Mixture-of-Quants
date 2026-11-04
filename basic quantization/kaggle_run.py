@@ -5,7 +5,10 @@ import sys
 
 REPO_URL = "https://github.com/w-ahmad1a10/Mixture-of-Quants.git"
 REPO_DIR = "/kaggle/working/Mixture-of-Quants"
-TOKEN_PATH = "/kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt"
+TOKEN_PATHS = [
+    "/kaggle/input/hf-token-store/hf_token.txt",
+    "/kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt",
+]
 
 
 def run(cmd):
@@ -29,9 +32,13 @@ def main():
          "--max-docs", "50",
          "--output", "/kaggle/working/basic_results.json"])
     # upload results
-    if os.path.exists(TOKEN_PATH):
-        with open(TOKEN_PATH) as f:
-            hf_token = f.read().strip()
+    hf_token = None
+    for tp in TOKEN_PATHS:
+        if os.path.exists(tp):
+            with open(tp) as f:
+                hf_token = f.read().strip()
+            break
+    if hf_token:
         from huggingface_hub import HfApi, create_repo
         repo_id = "deepresearch1a10/basic-quantization-results"
         create_repo(repo_id, repo_type="model", exist_ok=True, token=hf_token)

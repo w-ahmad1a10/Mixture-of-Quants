@@ -200,10 +200,14 @@ def main():
     args = parser.parse_args()
 
     hf_token = args.hf_token
-    mounted = "/kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt"
-    if os.path.exists(mounted):
-        with open(mounted) as f:
-            hf_token = f.read().strip()
+    for mounted in (
+        "/kaggle/input/hf-token-store/hf_token.txt",
+        "/kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt",
+    ):
+        if os.path.exists(mounted):
+            with open(mounted) as f:
+                hf_token = f.read().strip()
+            break
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
