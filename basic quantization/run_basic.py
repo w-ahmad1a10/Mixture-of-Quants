@@ -214,7 +214,7 @@ def main():
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     dtype = getattr(torch, args.dtype)
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, token=hf_token, trust_remote_code=True)
@@ -278,9 +278,12 @@ def main():
 
     # baseline
     results = {"model": args.model, "baseline": {}, "variants": []}
+    print("Starting baseline text evaluation...", flush=True)
     base_text = {}
     for name, samples in text_samples.items():
+        print(f"  Baseline text dataset: {name}", flush=True)
         base_text[name] = eval_text(model, samples, tokenizer, device, text_cached[name])
+    print("Baseline text done.", flush=True)
     # cache original mmlu probs
     orig_mmlu_probs = []
     with torch.inference_mode():
@@ -316,7 +319,9 @@ def main():
             orig_mmlu_probs.append(F.softmax(torch.tensor(lp_choices, device=device), dim=0).detach().cpu())
             cnt += 1
 
+    print("Starting baseline MMLU evaluation...", flush=True)
     base_mmlu = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token)
+    print("Baseline MMLU done.", flush=True)
     results["baseline"] = {"text": base_text, "mmlu": base_mmlu}
 
     variants = []
@@ -328,17 +333,21 @@ def main():
             for gs in (32, 64, 128):
                 variants.append((symmetric, "per_group", gs, bits))
 
-    for symmetric, granularity, gs, bits in variants:
-        print(f"\n=== {granularity} | symmetric={symmetric} | group={gs} | bits={bits} ===")
+    total_variants = len(variants)
+    for vi, (symmetric, granularity, gs, bits) in enumerate(variants, 1):
+        print(f"\n=== Variant {vi}/{total_variants}: {granularity} | symmetric={symmetric} | group={gs} | bits={bits} ===", flush=True)
         layer_mode = (granularity == "per_layer")
+        print("  Quantizing...", flush=True)
         originals = apply_quantization(model, mapping, bits, symmetric, granularity, gs, layer_mode)
-        # text eval
         text_res = {}
         for name, samples in text_samples.items():
+            print(f"  Evaluating text: {name}", flush=True)
             text_res[name] = eval_text(model, samples, tokenizer, device, text_cached[name])
+        print("  Evaluating MMLU...", flush=True)
         mmlu_res = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token)
         restore(originals)
         gc.collect()
+        print(f"  Variant {vi}/{total_variants} done.", flush=True)
         results["variants"].append({
             "symmetric": symmetric,
             "granularity": granularity,
