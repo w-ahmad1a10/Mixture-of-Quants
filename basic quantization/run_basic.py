@@ -12,8 +12,8 @@ from affine import quantize_tensor, layer_params, quantize_with_params
 TEACHER_TOPK = 10
 
 
-def build_text_samples(tokenizer, repo, config, split, seq_length, max_docs, num_chunks):
-    ds = load_dataset(repo, config, split=split, streaming=True) if config else load_dataset(repo, split=split, streaming=True)
+def build_text_samples(tokenizer, repo, config, split, seq_length, max_docs, num_chunks, hf_token=None):
+    ds = load_dataset(repo, config, split=split, streaming=True, token=hf_token) if config else load_dataset(repo, split=split, streaming=True, token=hf_token)
     all_ids = []
     count = 0
     for row in ds:
@@ -89,9 +89,9 @@ def eval_text(model, samples, tokenizer, device, cached=None):
     }
 
 
-def eval_mmlu(model, tokenizer, device, max_samples, orig_probs=None):
+def eval_mmlu(model, tokenizer, device, max_samples, orig_probs=None, hf_token=None):
     from datasets import load_dataset
-    ds = load_dataset("cais/mmlu", "all", split="test")
+    ds = load_dataset("cais/mmlu", "all", split="test", token=hf_token)
     correct = 0
     total = 0
     kld_sum = 0.0
@@ -199,6 +199,12 @@ def main():
     parser.add_argument("--hf-token", default=None)
     args = parser.parse_args()
 
+    hf_token = args.hf_token
+    mounted = "/kaggle/input/datasets/deepresearch1a10/hf-token-store/hf_token.txt"
+    if os.path.exists(mounted):
+        with open(mounted) as f:
+            hf_token = f.read().strip()
+
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -231,7 +237,7 @@ def main():
     }
     text_samples = {}
     for name, (repo, cfg, split) in text_sets.items():
-        text_samples[name] = build_text_samples(tokenizer, repo, cfg, split, args.seq_length, args.max_docs, args.text_chunks)
+        text_samples[name] = build_text_samples(tokenizer, repo, cfg, split, args.seq_length, args.max_docs, args.text_chunks, hf_token)
 
     def cache_text(samples):
         cached = []
@@ -272,7 +278,7 @@ def main():
     orig_mmlu_probs = []
     with torch.inference_mode():
         from datasets import load_dataset
-        ds = load_dataset("cais/mmlu", "all", split="test")
+        ds = load_dataset("cais/mmlu", "all", split="test", token=hf_token)
         cnt = 0
         for row in ds:
             if cnt >= args.mmlu_samples:
@@ -303,7 +309,7 @@ def main():
             orig_mmlu_probs.append(F.softmax(torch.tensor(lp_choices, device=device), dim=0).detach().cpu())
             cnt += 1
 
-    base_mmlu = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs)
+    base_mmlu = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token)
     results["baseline"] = {"text": base_text, "mmlu": base_mmlu}
 
     variants = []
@@ -323,7 +329,7 @@ def main():
         text_res = {}
         for name, samples in text_samples.items():
             text_res[name] = eval_text(model, samples, tokenizer, device, text_cached[name])
-        mmlu_res = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs)
+        mmlu_res = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token)
         restore(originals)
         gc.collect()
         results["variants"].append({
