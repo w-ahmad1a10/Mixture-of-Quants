@@ -4,8 +4,10 @@ import torch, torch.nn as nn, torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from huggingface_hub import HfApi, create_repo
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from moq.moq_core import SKIP_PATTERNS
+SKIP_PATTERNS = (
+    'norm', 'ln', 'rotary', 'bias', 'input_layernorm', 'ssm_conv1d', 'conv1d',
+    'post_attention_layernorm', 'norm.weight', 'ln_f', 'ln_1', 'ln_2', 'conv.conv'
+)
 
 VARIANTS = []
 for symmetric in (True, False):
@@ -65,7 +67,7 @@ def quantize_tensor(w, bits, symmetric, granularity, group_size=None):
         qmax = (1 << (bits - 1)) - 1
     else:
         qmax = (1 << bits) - 1
-    if granularity == "per_tensor":
+    if granularity in ("per_tensor", "per_layer"):
         if symmetric:
             maxabs = w.abs().max()
             scale = (maxabs / qmax) if (maxabs > 0 and qmax > 0) else torch.tensor(1.0, device=w.device)
