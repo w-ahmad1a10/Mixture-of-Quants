@@ -89,54 +89,61 @@ def eval_text(model, samples, tokenizer, device, cached=None):
     }
 
 
-def eval_mmlu(model, tokenizer, device, max_samples, orig_probs=None, hf_token=None):
+def eval_mmlu(model, tokenizer, device, max_samples, orig_probs=None, hf_token=None, batch_size=4):
     from datasets import load_dataset
     ds = load_dataset("cais/mmlu", "all", split="test", token=hf_token)
+    rows = []
+    for r in ds:
+        if len(rows) >= max_samples:
+            break
+        rows.append(r)
     correct = 0
     total = 0
     kld_sum = 0.0
     ce_sum = 0.0
     ce_tokens = 0
+    answer_ids = tokenizer("Answer:", add_special_tokens=False)["input_ids"]
+    choice_tokens_fixed = []
+    for letter in ["A", "B", "C", "D"]:
+        t = tokenizer(" " + letter, add_special_tokens=False)["input_ids"]
+        choice_tokens_fixed.append(t[0] if t else tokenizer.eos_token_id)
     with torch.inference_mode():
-        for i, row in enumerate(ds):
-            if total >= max_samples:
-                break
-            choices = row["choices"]
-            prompt = (f"{row['question'].strip()}\n"
-                      f"A. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\nAnswer:")
-            enc = tokenizer(prompt, return_tensors="pt")
+        for start in range(0, len(rows), batch_size):
+            batch = rows[start:start + batch_size]
+            prompts = []
+            for row in batch:
+                choices = row["choices"]
+                prompts.append(f"{row['question'].strip()}\n"
+                               f"A. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\nAnswer:")
+            enc = tokenizer(prompts, return_tensors="pt", padding=True)
             ids = enc["input_ids"].to(device)
             mask = enc["attention_mask"].to(device)
             logits = model(input_ids=ids, attention_mask=mask).logits
             lp = F.log_softmax(logits, dim=-1)
-            answer_ids = tokenizer("Answer:", add_special_tokens=False)["input_ids"]
-            input_ids = ids[0]
-            answer_start = None
-            for pos in range(len(input_ids) - len(answer_ids) + 1):
-                if all(input_ids[pos + j].item() == answer_ids[j] for j in range(len(answer_ids))):
-                    answer_start = pos + len(answer_ids)
-                    break
-            if answer_start is None or answer_start >= logits.size(1):
-                continue
-            choice_tokens = []
-            for letter in ["A", "B", "C", "D"]:
-                t = tokenizer(" " + letter, add_special_tokens=False)["input_ids"]
-                choice_tokens.append(t[0] if t else tokenizer.eos_token_id)
-            lp_choices = [lp[0, answer_start, tid].item() for tid in choice_tokens]
-            student_probs = F.softmax(torch.tensor(lp_choices, device=device), dim=0)
-            pred = int(torch.argmax(student_probs).item())
-            if pred == int(row["answer"]):
-                correct += 1
-            ans_tid = choice_tokens[int(row["answer"])]
-            ce_sum += -lp[0, answer_start, ans_tid].item()
-            ce_tokens += 1
-            # KLD vs original if available
-            if orig_probs is not None and total < len(orig_probs):
-                op = orig_probs[total]
-                sp = student_probs
-                kld = torch.sum(op * torch.log(torch.clamp(op, 1e-10) / torch.clamp(sp, 1e-10))).item()
-                kld_sum += kld
-            total += 1
+            for bi, row in enumerate(batch):
+                input_ids = ids[bi]
+                # find answer start
+                answer_start = None
+                for pos in range(len(input_ids) - len(answer_ids) + 1):
+                    if all(input_ids[pos + j].item() == answer_ids[j] for j in range(len(answer_ids))):
+                        answer_start = pos + len(answer_ids)
+                        break
+                if answer_start is None or answer_start >= logits.size(1):
+                    continue
+                lp_choices = [lp[bi, answer_start, tid].item() for tid in choice_tokens_fixed]
+                student_probs = F.softmax(torch.tensor(lp_choices, device=device), dim=0)
+                pred = int(torch.argmax(student_probs).item())
+                if pred == int(row["answer"]):
+                    correct += 1
+                ans_tid = choice_tokens_fixed[int(row["answer"])]
+                ce_sum += -lp[bi, answer_start, ans_tid].item()
+                ce_tokens += 1
+                if orig_probs is not None and total < len(orig_probs):
+                    op = orig_probs[total]
+                    sp = student_probs
+                    kld = torch.sum(op * torch.log(torch.clamp(op, 1e-10) / torch.clamp(sp, 1e-10))).item()
+                    kld_sum += kld
+                total += 1
     ppl = math.exp(ce_sum / ce_tokens) if ce_tokens > 0 else float("inf")
     return {
         "accuracy": correct / total if total else 0.0,
@@ -191,7 +198,8 @@ def main():
     parser.add_argument("--mapping", default=None)
     parser.add_argument("--dtype", default="float16")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--mmlu-samples", type=int, default=500)
+    parser.add_argument("--mmlu-samples", type=int, default=100)
+    parser.add_argument("--mmlu-batch-size", type=int, default=4)
     parser.add_argument("--text-chunks", type=int, default=500)
     parser.add_argument("--seq-length", type=int, default=512)
     parser.add_argument("--max-docs", type=int, default=50)
@@ -320,7 +328,7 @@ def main():
             cnt += 1
 
     print("Starting baseline MMLU evaluation...", flush=True)
-    base_mmlu = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token)
+    base_mmlu = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token, args.mmlu_batch_size)
     print("Baseline MMLU done.", flush=True)
     results["baseline"] = {"text": base_text, "mmlu": base_mmlu}
 
@@ -344,7 +352,7 @@ def main():
             print(f"  Evaluating text: {name}", flush=True)
             text_res[name] = eval_text(model, samples, tokenizer, device, text_cached[name])
         print("  Evaluating MMLU...", flush=True)
-        mmlu_res = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token)
+        mmlu_res = eval_mmlu(model, tokenizer, device, args.mmlu_samples, orig_mmlu_probs, hf_token, args.mmlu_batch_size)
         restore(originals)
         gc.collect()
         print(f"  Variant {vi}/{total_variants} done.", flush=True)
