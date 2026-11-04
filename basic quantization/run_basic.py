@@ -207,7 +207,10 @@ def main():
         if os.path.exists(mounted):
             with open(mounted) as f:
                 hf_token = f.read().strip()
+            print("HF token loaded, length:", len(hf_token) if hf_token else 0)
             break
+    if not hf_token:
+        print("WARNING: no HF token found")
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -237,7 +240,7 @@ def main():
     text_sets = {
         "fineweb-edu": ("HuggingFaceFW/fineweb-edu", None, "train"),
         "finemath-4plus": ("HuggingFaceTB/finemath", "finemath-4plus", "train"),
-        "the-stack-python": ("bigcode/the-stack", "data/python", "train"),
+        "the-stack-python": ("bigcode/the-stack", None, "train"),
     }
     text_samples = {}
     for name, (repo, cfg, split) in text_sets.items():
