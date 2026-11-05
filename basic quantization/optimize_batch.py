@@ -41,7 +41,7 @@ for bits in (3, 4):
     # SGD
     print("--- SGD ---", flush=True)
     W_sgd = W0.clone().detach().requires_grad_(True)
-    opt_sgd = torch.optim.SGD([W_sgd], lr=1e-3)
+    opt_sgd = torch.optim.SGD([W_sgd], lr=1e-1)
     hist_sgd = []
     for step in range(STEPS):
         # mini-batch
