@@ -41,7 +41,7 @@ for bits in (3, 4):
     # SGD
     print("--- SGD ---", flush=True)
     W_sgd = W0.clone().detach().requires_grad_(True)
-    opt_sgd = torch.optim.SGD([W_sgd], lr=1e-2)
+    opt_sgd = torch.optim.SGD([W_sgd], lr=1e-3)
     hist_sgd = []
     for step in range(STEPS):
         # mini-batch
@@ -63,7 +63,7 @@ for bits in (3, 4):
     # Adam
     print("--- Adam ---", flush=True)
     W_adam = W0.clone().detach().requires_grad_(True)
-    opt_adam = torch.optim.Adam([W_adam], lr=1e-3, betas=(0.9, 0.95))
+    opt_adam = torch.optim.Adam([W_adam], lr=1e-4, betas=(0.9, 0.95))
     hist_adam = []
     for step in range(STEPS):
         start = (step * BATCH) % len(X_train)

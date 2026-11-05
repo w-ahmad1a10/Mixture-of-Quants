@@ -1,0 +1,43 @@
+<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Batch Size 10 Optimization</title>
+<style>body{font-family:Arial;margin:20px;background:#f5f5f5;} .card{background:#fff;padding:16px;margin:12px 0;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;} th{background:#3498db;color:#fff;} tr:nth-child(even){background:#f9f9f9;} h1,h2{color:#333;}</style>
+</head><body><h1>Batch Size 10: 3-bit and 4-bit</h1>
+<div class='card'><h2>Summary</h2>
+<p>Matrix: 2048x2048, batch size 10, 100 steps, 100 train inputs</p>
+<h3>3-bit</h3>
+<p>Baseline train MSE: 1.966738e-01</p>
+<p>SGD final: 1.873951e-01 (improvement 1.05x, weight change 1.917710e-09)</p>
+<p>Adam final: 1.150717e-01 (improvement 1.71x, weight change 6.001145e-06)</p>
+<h3>4-bit</h3>
+<p>Baseline train MSE: 3.618009e-02</p>
+<p>SGD final: 3.440762e-02 (improvement 1.05x, weight change 3.523870e-10)</p>
+<p>Adam final: 4.547640e-02 (improvement 0.80x, weight change 1.587262e-06)</p>
+</div>
+<div class='card'><h2>3-bit loss per step</h2>
+<table><thead><tr><th>Step</th><th>SGD train MSE</th><th>Adam train MSE</th></tr></thead><tbody>
+<tr><td>0</td><td>1.965741e-01</td><td>1.862804e-01</td></tr>
+<tr><td>10</td><td>1.956659e-01</td><td>4.569622e-01</td></tr>
+<tr><td>20</td><td>1.946969e-01</td><td>1.323825e-01</td></tr>
+<tr><td>30</td><td>1.937431e-01</td><td>1.018987e-01</td></tr>
+<tr><td>40</td><td>1.927683e-01</td><td>9.512437e-02</td></tr>
+<tr><td>50</td><td>1.918404e-01</td><td>1.045326e-01</td></tr>
+<tr><td>60</td><td>1.909575e-01</td><td>1.121992e-01</td></tr>
+<tr><td>70</td><td>1.901091e-01</td><td>1.171054e-01</td></tr>
+<tr><td>80</td><td>1.891761e-01</td><td>1.174000e-01</td></tr>
+<tr><td>90</td><td>1.881992e-01</td><td>1.152972e-01</td></tr>
+<tr><td>99</td><td>1.873951e-01</td><td>1.150717e-01</td></tr>
+</tbody></table></div>
+<div class='card'><h2>4-bit loss per step</h2>
+<table><thead><tr><th>Step</th><th>SGD train MSE</th><th>Adam train MSE</th></tr></thead><tbody>
+<tr><td>0</td><td>3.616128e-02</td><td>5.414436e-02</td></tr>
+<tr><td>10</td><td>3.598683e-02</td><td>4.839343e-01</td></tr>
+<tr><td>20</td><td>3.580600e-02</td><td>7.373581e-02</td></tr>
+<tr><td>30</td><td>3.561174e-02</td><td>4.890584e-02</td></tr>
+<tr><td>40</td><td>3.544098e-02</td><td>3.327501e-02</td></tr>
+<tr><td>50</td><td>3.526132e-02</td><td>3.184280e-02</td></tr>
+<tr><td>60</td><td>3.508184e-02</td><td>3.971189e-02</td></tr>
+<tr><td>70</td><td>3.491213e-02</td><td>4.620722e-02</td></tr>
+<tr><td>80</td><td>3.473552e-02</td><td>4.788310e-02</td></tr>
+<tr><td>90</td><td>3.456470e-02</td><td>4.728884e-02</td></tr>
+<tr><td>99</td><td>3.440762e-02</td><td>4.547640e-02</td></tr>
+</tbody></table></div>
+</body></html>
