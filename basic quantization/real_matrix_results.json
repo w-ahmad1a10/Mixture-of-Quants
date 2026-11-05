@@ -1,0 +1,489 @@
+{
+  "matrix": "model.layers.12.linear_attn.out_proj",
+  "shape": [
+    1024,
+    2048
+  ],
+  "results": [
+    {
+      "name": "asym_group32_8bit",
+      "bits": 8,
+      "mse": 6.067384219932137e-06,
+      "sqnr": 46.225122484564345,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 32,
+      "x": 1.0
+    },
+    {
+      "name": "asym_group64_8bit",
+      "bits": 8,
+      "mse": 7.754765647405293e-06,
+      "sqnr": 45.092613332569236,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 64,
+      "x": 1.2781069018062003
+    },
+    {
+      "name": "sym_group32_8bit",
+      "bits": 8,
+      "mse": 8.388939022552222e-06,
+      "sqnr": 45.07068047909879,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 32,
+      "x": 1.3826286120126494
+    },
+    {
+      "name": "sym_group64_8bit",
+      "bits": 8,
+      "mse": 9.38541597861331e-06,
+      "sqnr": 44.07780434051813,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 64,
+      "x": 1.5468636299282006
+    },
+    {
+      "name": "asym_group128_8bit",
+      "bits": 8,
+      "mse": 9.9848912213929e-06,
+      "sqnr": 44.137775269507,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 128,
+      "x": 1.6456665441742173
+    },
+    {
+      "name": "sym_group128_8bit",
+      "bits": 8,
+      "mse": 1.2379065083223395e-05,
+      "sqnr": 43.23261285527694,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 128,
+      "x": 2.0402639151409887
+    },
+    {
+      "name": "asym_channel_8bit",
+      "bits": 8,
+      "mse": 2.0581941498676315e-05,
+      "sqnr": 40.572002365552294,
+      "granularity": "per_channel",
+      "symmetric": false,
+      "gs": null,
+      "x": 3.3922264937601927
+    },
+    {
+      "name": "sym_channel_8bit",
+      "bits": 8,
+      "mse": 2.801688970066607e-05,
+      "sqnr": 39.86503520501501,
+      "granularity": "per_channel",
+      "symmetric": true,
+      "gs": null,
+      "x": 4.6176224687777285
+    },
+    {
+      "name": "asym_group32_6bit",
+      "bits": 6,
+      "mse": 0.00010282381845172495,
+      "sqnr": 34.079476434888846,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 32,
+      "x": 1.0
+    },
+    {
+      "name": "sym_group32_6bit",
+      "bits": 6,
+      "mse": 0.00012724452244583517,
+      "sqnr": 32.81968455270464,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 32,
+      "x": 1.237500458180082
+    },
+    {
+      "name": "asym_group64_6bit",
+      "bits": 6,
+      "mse": 0.00012890707876067609,
+      "sqnr": 32.947884462637525,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 64,
+      "x": 1.253669438673852
+    },
+    {
+      "name": "asym_group128_6bit",
+      "bits": 6,
+      "mse": 0.00015855013043619692,
+      "sqnr": 31.998290599985623,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 128,
+      "x": 1.5419591766146585
+    },
+    {
+      "name": "sym_group64_6bit",
+      "bits": 6,
+      "mse": 0.00016297311231028289,
+      "sqnr": 31.832511624787045,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 64,
+      "x": 1.584974325640295
+    },
+    {
+      "name": "sym_group128_6bit",
+      "bits": 6,
+      "mse": 0.00019193594926036894,
+      "sqnr": 30.992864017517277,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 128,
+      "x": 1.8666487215749676
+    },
+    {
+      "name": "asym_tensor_8bit",
+      "bits": 8,
+      "mse": 0.0003227177367080003,
+      "sqnr": 28.93567244363789,
+      "granularity": "per_tensor",
+      "symmetric": false,
+      "gs": null,
+      "x": 53.18894024344644
+    },
+    {
+      "name": "asym_layer_8bit",
+      "bits": 8,
+      "mse": 0.0003227177367080003,
+      "sqnr": 28.93567244363789,
+      "granularity": "per_layer",
+      "symmetric": false,
+      "gs": null,
+      "x": 53.18894024344644
+    },
+    {
+      "name": "asym_channel_6bit",
+      "bits": 6,
+      "mse": 0.00037936068838462234,
+      "sqnr": 28.428827384327068,
+      "granularity": "per_channel",
+      "symmetric": false,
+      "gs": null,
+      "x": 3.6894242413563885
+    },
+    {
+      "name": "sym_tensor_8bit",
+      "bits": 8,
+      "mse": 0.00041450021672062576,
+      "sqnr": 27.85949798870255,
+      "granularity": "per_tensor",
+      "symmetric": true,
+      "gs": null,
+      "x": 68.3161312512465
+    },
+    {
+      "name": "sym_layer_8bit",
+      "bits": 8,
+      "mse": 0.00041450021672062576,
+      "sqnr": 27.85949798870255,
+      "granularity": "per_layer",
+      "symmetric": true,
+      "gs": null,
+      "x": 68.3161312512465
+    },
+    {
+      "name": "sym_channel_6bit",
+      "bits": 6,
+      "mse": 0.00044220162089914083,
+      "sqnr": 27.613162376934252,
+      "granularity": "per_channel",
+      "symmetric": true,
+      "gs": null,
+      "x": 4.300575757228383
+    },
+    {
+      "name": "asym_group32_4bit",
+      "bits": 4,
+      "mse": 0.0017847177805379033,
+      "sqnr": 21.614620653054338,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 32,
+      "x": 1.0
+    },
+    {
+      "name": "asym_group64_4bit",
+      "bits": 4,
+      "mse": 0.0021843204740434885,
+      "sqnr": 20.48311611546638,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 64,
+      "x": 1.223902455538459
+    },
+    {
+      "name": "sym_group32_4bit",
+      "bits": 4,
+      "mse": 0.002519245259463787,
+      "sqnr": 19.900875365666124,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 32,
+      "x": 1.4115650591571411
+    },
+    {
+      "name": "asym_group128_4bit",
+      "bits": 4,
+      "mse": 0.002877616323530674,
+      "sqnr": 19.52847557669832,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 128,
+      "x": 1.6123649099654163
+    },
+    {
+      "name": "sym_group64_4bit",
+      "bits": 4,
+      "mse": 0.003235914744436741,
+      "sqnr": 18.91209005250896,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 64,
+      "x": 1.8131240578896768
+    },
+    {
+      "name": "sym_group128_4bit",
+      "bits": 4,
+      "mse": 0.003867233172059059,
+      "sqnr": 18.074780291446906,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 128,
+      "x": 2.166859777064303
+    },
+    {
+      "name": "asym_tensor_6bit",
+      "bits": 6,
+      "mse": 0.005019439850002527,
+      "sqnr": 16.81655068000012,
+      "granularity": "per_tensor",
+      "symmetric": false,
+      "gs": null,
+      "x": 48.81592539144147
+    },
+    {
+      "name": "asym_layer_6bit",
+      "bits": 6,
+      "mse": 0.005019439850002527,
+      "sqnr": 16.81655068000012,
+      "granularity": "per_layer",
+      "symmetric": false,
+      "gs": null,
+      "x": 48.81592539144147
+    },
+    {
+      "name": "asym_channel_4bit",
+      "bits": 4,
+      "mse": 0.006165207829326391,
+      "sqnr": 15.97704310568183,
+      "granularity": "per_channel",
+      "symmetric": false,
+      "gs": null,
+      "x": 3.454444112428932
+    },
+    {
+      "name": "sym_tensor_6bit",
+      "bits": 6,
+      "mse": 0.006684255786240101,
+      "sqnr": 15.650623925220945,
+      "granularity": "per_tensor",
+      "symmetric": true,
+      "gs": null,
+      "x": 65.00688154640271
+    },
+    {
+      "name": "sym_layer_6bit",
+      "bits": 6,
+      "mse": 0.006684255786240101,
+      "sqnr": 15.650623925220945,
+      "granularity": "per_layer",
+      "symmetric": true,
+      "gs": null,
+      "x": 65.00688154640271
+    },
+    {
+      "name": "asym_group32_3bit",
+      "bits": 3,
+      "mse": 0.008401206694543362,
+      "sqnr": 15.0075974930033,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 32,
+      "x": 1.0
+    },
+    {
+      "name": "sym_channel_4bit",
+      "bits": 4,
+      "mse": 0.008582566864788532,
+      "sqnr": 14.711175236971117,
+      "granularity": "per_channel",
+      "symmetric": true,
+      "gs": null,
+      "x": 4.808921028512305
+    },
+    {
+      "name": "asym_group64_3bit",
+      "bits": 3,
+      "mse": 0.010768001899123192,
+      "sqnr": 13.882022429268687,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 64,
+      "x": 1.2817208635179846
+    },
+    {
+      "name": "asym_group128_3bit",
+      "bits": 3,
+      "mse": 0.013147919438779354,
+      "sqnr": 12.943205823069746,
+      "granularity": "per_group",
+      "symmetric": false,
+      "gs": 128,
+      "x": 1.5650036854014095
+    },
+    {
+      "name": "sym_group32_3bit",
+      "bits": 3,
+      "mse": 0.014186352491378784,
+      "sqnr": 12.568119628187837,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 32,
+      "x": 1.6886089114546976
+    },
+    {
+      "name": "sym_group64_3bit",
+      "bits": 3,
+      "mse": 0.018658630549907684,
+      "sqnr": 11.590158150477077,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 64,
+      "x": 2.220946493558668
+    },
+    {
+      "name": "sym_group128_3bit",
+      "bits": 3,
+      "mse": 0.0231003537774086,
+      "sqnr": 10.760026136689376,
+      "granularity": "per_group",
+      "symmetric": true,
+      "gs": 128,
+      "x": 2.7496471182422435
+    },
+    {
+      "name": "asym_channel_3bit",
+      "bits": 3,
+      "mse": 0.027585657313466072,
+      "sqnr": 9.436691161644653,
+      "granularity": "per_channel",
+      "symmetric": false,
+      "gs": null,
+      "x": 3.283535129707395
+    },
+    {
+      "name": "sym_channel_3bit",
+      "bits": 3,
+      "mse": 0.043895427137613297,
+      "sqnr": 7.541105427732396,
+      "granularity": "per_channel",
+      "symmetric": true,
+      "gs": null,
+      "x": 5.224895510084719
+    },
+    {
+      "name": "asym_tensor_4bit",
+      "bits": 4,
+      "mse": 0.07658388465642929,
+      "sqnr": 5.000470382242165,
+      "granularity": "per_tensor",
+      "symmetric": false,
+      "gs": null,
+      "x": 42.91092154264713
+    },
+    {
+      "name": "asym_layer_4bit",
+      "bits": 4,
+      "mse": 0.07658388465642929,
+      "sqnr": 5.000470382242165,
+      "granularity": "per_layer",
+      "symmetric": false,
+      "gs": null,
+      "x": 42.91092154264713
+    },
+    {
+      "name": "sym_tensor_4bit",
+      "bits": 4,
+      "mse": 0.09998816251754761,
+      "sqnr": 3.675191641863745,
+      "granularity": "per_tensor",
+      "symmetric": true,
+      "gs": null,
+      "x": 56.02463515963391
+    },
+    {
+      "name": "sym_layer_4bit",
+      "bits": 4,
+      "mse": 0.09998816251754761,
+      "sqnr": 3.675191641863745,
+      "granularity": "per_layer",
+      "symmetric": true,
+      "gs": null,
+      "x": 56.02463515963391
+    },
+    {
+      "name": "asym_tensor_3bit",
+      "bits": 3,
+      "mse": 0.21776697039604187,
+      "sqnr": 0.8525361417701159,
+      "granularity": "per_tensor",
+      "symmetric": false,
+      "gs": null,
+      "x": 25.920915686729018
+    },
+    {
+      "name": "asym_layer_3bit",
+      "bits": 3,
+      "mse": 0.21776697039604187,
+      "sqnr": 0.8525361417701159,
+      "granularity": "per_layer",
+      "symmetric": false,
+      "gs": null,
+      "x": 25.920915686729018
+    },
+    {
+      "name": "sym_tensor_3bit",
+      "bits": 3,
+      "mse": 0.24594253301620483,
+      "sqnr": 0.28000828027944125,
+      "granularity": "per_tensor",
+      "symmetric": true,
+      "gs": null,
+      "x": 29.274667551739455
+    },
+    {
+      "name": "sym_layer_3bit",
+      "bits": 3,
+      "mse": 0.24594253301620483,
+      "sqnr": 0.28000828027944125,
+      "granularity": "per_layer",
+      "symmetric": true,
+      "gs": null,
+      "x": 29.274667551739455
+    }
+  ]
+}

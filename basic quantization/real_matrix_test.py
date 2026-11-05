@@ -30,18 +30,27 @@ candidates = [n for n, m in model.named_modules() if hasattr(m, "weight") and m.
 print("num candidates:", len(candidates), flush=True)
 print("first 10:", candidates[:10], flush=True)
 # try to find a middle layer weight
-for keyword in ("layers.12", "layers.11", "layers.10"):
-    for name, module in model.named_modules():
-        if keyword in name and name.endswith("weight") and hasattr(module, "weight") and module.weight.dim() >= 2 and "norm" not in name.lower():
+matches = [n for n, m in model.named_modules() if "layers.12" in n and hasattr(m, "weight") and m.weight.dim() == 2]
+print("layers.12 2D weights:", matches, flush=True)
+if matches:
+    name = matches[0]
+    for n, module in model.named_modules():
+        if n == name:
             target = module.weight.data.detach().clone().float()
             target_name = name
             break
-    if target is not None:
-        break
 if target is None:
     # pick a middle candidate
-    mid = len(candidates) // 2
-    name = candidates[mid]
+    twod = [c for c in candidates if c.endswith("weight")]
+    # filter to 2D modules
+    twod2 = []
+    for c in twod:
+        for n, m in model.named_modules():
+            if n == c and hasattr(m, "weight") and m.weight.dim() == 2:
+                twod2.append(c)
+    pool = twod2 if twod2 else twod
+    mid = len(pool) // 2
+    name = pool[mid]
     for n, module in model.named_modules():
         if n == name:
             target = module.weight.data.detach().clone().float()
