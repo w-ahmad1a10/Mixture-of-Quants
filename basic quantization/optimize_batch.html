@@ -5,39 +5,39 @@
 <p>Matrix: 2048x2048, batch size 10, 100 steps, 100 train inputs</p>
 <h3>3-bit</h3>
 <p>Baseline train MSE: 1.966738e-01</p>
-<p>SGD final: 1.957288e-01 (improvement 1.00x, weight change 1.958941e-11)</p>
+<p>SGD final: 1.225622e-01 (improvement 1.60x, weight change 1.553177e-07)</p>
 <p>Adam final: 2.791669e-02 (improvement 7.05x, weight change 3.627886e-06)</p>
 <h3>4-bit</h3>
 <p>Baseline train MSE: 3.618009e-02</p>
-<p>SGD final: 3.599115e-02 (improvement 1.01x, weight change 3.603831e-12)</p>
+<p>SGD final: 2.216416e-02 (improvement 1.63x, weight change 2.836603e-08)</p>
 <p>Adam final: 8.298739e-03 (improvement 4.36x, weight change 8.610350e-07)</p>
 </div>
 <div class='card'><h2>3-bit loss per step</h2>
 <table><thead><tr><th>Step</th><th>SGD train MSE</th><th>Adam train MSE</th></tr></thead><tbody>
-<tr><td>0</td><td>1.966530e-01</td><td>1.924141e-01</td></tr>
-<tr><td>10</td><td>1.965808e-01</td><td>1.399146e-01</td></tr>
-<tr><td>20</td><td>1.964832e-01</td><td>1.000353e-01</td></tr>
-<tr><td>30</td><td>1.963958e-01</td><td>7.236690e-02</td></tr>
-<tr><td>40</td><td>1.962833e-01</td><td>5.339754e-02</td></tr>
-<tr><td>50</td><td>1.961841e-01</td><td>4.095890e-02</td></tr>
-<tr><td>60</td><td>1.960920e-01</td><td>3.374339e-02</td></tr>
-<tr><td>70</td><td>1.959930e-01</td><td>2.968608e-02</td></tr>
-<tr><td>80</td><td>1.959080e-01</td><td>2.720024e-02</td></tr>
-<tr><td>90</td><td>1.958162e-01</td><td>2.707426e-02</td></tr>
-<tr><td>99</td><td>1.957288e-01</td><td>2.791669e-02</td></tr>
+<tr><td>0</td><td>1.958050e-01</td><td>1.924141e-01</td></tr>
+<tr><td>10</td><td>1.868807e-01</td><td>1.399146e-01</td></tr>
+<tr><td>20</td><td>1.780422e-01</td><td>1.000353e-01</td></tr>
+<tr><td>30</td><td>1.694663e-01</td><td>7.236690e-02</td></tr>
+<tr><td>40</td><td>1.613530e-01</td><td>5.339754e-02</td></tr>
+<tr><td>50</td><td>1.538400e-01</td><td>4.095890e-02</td></tr>
+<tr><td>60</td><td>1.466220e-01</td><td>3.374339e-02</td></tr>
+<tr><td>70</td><td>1.399070e-01</td><td>2.968608e-02</td></tr>
+<tr><td>80</td><td>1.334208e-01</td><td>2.720024e-02</td></tr>
+<tr><td>90</td><td>1.274121e-01</td><td>2.707426e-02</td></tr>
+<tr><td>99</td><td>1.225622e-01</td><td>2.791669e-02</td></tr>
 </tbody></table></div>
 <div class='card'><h2>4-bit loss per step</h2>
 <table><thead><tr><th>Step</th><th>SGD train MSE</th><th>Adam train MSE</th></tr></thead><tbody>
-<tr><td>0</td><td>3.617741e-02</td><td>3.477050e-02</td></tr>
-<tr><td>10</td><td>3.615801e-02</td><td>1.816761e-02</td></tr>
-<tr><td>20</td><td>3.614272e-02</td><td>1.020094e-02</td></tr>
-<tr><td>30</td><td>3.612375e-02</td><td>7.384665e-03</td></tr>
-<tr><td>40</td><td>3.610771e-02</td><td>6.466061e-03</td></tr>
-<tr><td>50</td><td>3.608937e-02</td><td>6.739799e-03</td></tr>
-<tr><td>60</td><td>3.606744e-02</td><td>7.337479e-03</td></tr>
-<tr><td>70</td><td>3.604863e-02</td><td>7.866517e-03</td></tr>
-<tr><td>80</td><td>3.603088e-02</td><td>8.037032e-03</td></tr>
-<tr><td>90</td><td>3.601069e-02</td><td>8.194890e-03</td></tr>
-<tr><td>99</td><td>3.599115e-02</td><td>8.298739e-03</td></tr>
+<tr><td>0</td><td>3.601856e-02</td><td>3.477050e-02</td></tr>
+<tr><td>10</td><td>3.430370e-02</td><td>1.816761e-02</td></tr>
+<tr><td>20</td><td>3.261499e-02</td><td>1.020094e-02</td></tr>
+<tr><td>30</td><td>3.100177e-02</td><td>7.384665e-03</td></tr>
+<tr><td>40</td><td>2.946073e-02</td><td>6.466061e-03</td></tr>
+<tr><td>50</td><td>2.802882e-02</td><td>6.739799e-03</td></tr>
+<tr><td>60</td><td>2.670378e-02</td><td>7.337479e-03</td></tr>
+<tr><td>70</td><td>2.542987e-02</td><td>7.866517e-03</td></tr>
+<tr><td>80</td><td>2.424143e-02</td><td>8.037032e-03</td></tr>
+<tr><td>90</td><td>2.313916e-02</td><td>8.194890e-03</td></tr>
+<tr><td>99</td><td>2.216416e-02</td><td>8.298739e-03</td></tr>
 </tbody></table></div>
 </body></html>
