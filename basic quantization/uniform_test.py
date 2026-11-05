@@ -77,9 +77,9 @@ for cond in CONDS:
 
 html.append("<div class='card'><h2>Ratio: MSE uniform / MSE normal</h2>")
 html.append("<p>Below 1.0 means uniform is easier to quantize. Above 1.0 means normal is easier.</p>")
-html.append("<table><thead><tr><th>Variant</th><th>MSE normal</th><th>MSE uniform</th><th>Ratio</th></tr></thead><tbody>")
+html.append("<table><thead><tr><th>Variant</th><th>MSE normal</th><th>MSE uniform</th><th>Ratio</th><th>X-times</th></tr></thead><tbody>")
 for name, bits, a, b, ratio in sorted(ratio_rows, key=lambda r: r[4]):
-    html.append(f"<tr><td>{name}</td><td>{a:.4e}</td><td>{b:.4e}</td><td>{ratio:.4f}</td></tr>")
+    html.append(f"<tr><td>{name}</td><td>{a:.4e}</td><td>{b:.4e}</td><td>{ratio:.4f}</td><td>{ratio:.2f}x</td></tr>")
 html.append("</tbody></table></div>")
 
 html.append("</body></html>")

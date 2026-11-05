@@ -80,9 +80,9 @@ for cond in CONDITIONS:
 
 html.append("<div class='card'><h2>Ratio: MSE with ReLU / MSE without ReLU</h2>")
 html.append("<p>Below 1.0 means ReLU reduced error. Above 1.0 means ReLU increased error.</p>")
-html.append("<table><thead><tr><th>Variant</th><th>MSE no ReLU</th><th>MSE with ReLU</th><th>Ratio</th></tr></thead><tbody>")
+html.append("<table><thead><tr><th>Variant</th><th>MSE no ReLU</th><th>MSE with ReLU</th><th>Ratio</th><th>X-times</th></tr></thead><tbody>")
 for name, bits, a, b, ratio in sorted(ratio_rows, key=lambda r: r[4]):
-    html.append(f"<tr><td>{name}</td><td>{a:.4e}</td><td>{b:.4e}</td><td>{ratio:.4f}</td></tr>")
+    html.append(f"<tr><td>{name}</td><td>{a:.4e}</td><td>{b:.4e}</td><td>{ratio:.4f}</td><td>{ratio:.2f}x</td></tr>")
 html.append("</tbody></table></div>")
 
 html.append("</body></html>")
