@@ -45,6 +45,7 @@
   <div class="result" id="resultA"></div>
   <div class="result" id="resultB"></div>
   <div class="result big" id="ratio"></div>
+  <div class="result" id="tradeoff"></div>
 </div>
 
 <div class="card">
@@ -149,6 +150,16 @@ function updateCompare() {
     text = "Model B has " + ratio.toFixed(2) + "x the error of Model A (across different bit groups).";
   }
   document.getElementById("ratio").innerText = text;
+  // tradeoff: size difference vs error difference
+  const sizeDiff = Math.abs(a.kb - b.kb);
+  const smallerMse = Math.min(a.mse, b.mse);
+  const largerMse = Math.max(a.mse, b.mse);
+  const errorPctMore = smallerMse > 0 ? ((largerMse - smallerMse) / smallerMse * 100) : 0;
+  const bigger = a.mse > b.mse ? a.name : b.name;
+  const smaller = a.mse > b.mse ? b.name : a.name;
+  document.getElementById("tradeoff").innerText =
+    "Size difference: " + sizeDiff.toFixed(2) + " KB. " +
+    bigger + " has " + errorPctMore.toFixed(1) + "% more error than " + smaller + ".";
 }
 
 function renderTable() {
