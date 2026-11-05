@@ -2,7 +2,7 @@ import os, sys, json, torch, torch.nn.functional as F
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from quantize import quantize_tensor, VARIANTS, variant_name
 
-SIZES = [256, 512, 1024]
+SIZES = [256, 512, 1024, 2048]
 SEEDS = list(range(10))
 
 all_results = {}
