@@ -1,4 +1,4 @@
-import os, sys, json, torch, torch.nn.functional as F
+import os, sys, json, math, torch, torch.nn.functional as F
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from quantize import quantize_tensor, VARIANTS, variant_name
 
@@ -21,14 +21,22 @@ for seed in SEEDS:
         x = torch.randn(SIZE)
         y = W @ x
         mses_this = {}
+        sqnrs_this = {}
         for sym, gran, gs, bits in VARIANTS:
             Wq = quantize_tensor(W.clone(), bits, sym, gran, gs)
             yq = Wq @ x
             mse = F.mse_loss(yq, y).item()
             mses_this[variant_name(sym, gran, gs, bits)] = mse
+            # SQNR on weights
+            wvar = W.var().item()
+            wnoise = ((W - Wq) ** 2).mean().item()
+            if wnoise > 0 and wvar > 0:
+                sqnrs_this[variant_name(sym, gran, gs, bits)] = 10.0 * math.log10(wvar / wnoise)
+            else:
+                sqnrs_this[variant_name(sym, gran, gs, bits)] = float("inf")
         mn = min(mses_this.values())
         for name, mse in mses_this.items():
-            results[cond][name].append({"mse": mse, "x": mse / mn})
+            results[cond][name].append({"mse": mse, "x": mse / mn, "sqnr": sqnrs_this[name]})
 
 # aggregate
 agg = {c: {} for c in CONDITIONS}
@@ -36,8 +44,10 @@ for cond in CONDITIONS:
     for name in results[cond]:
         ms = [r["mse"] for r in results[cond][name]]
         xs = [r["x"] for r in results[cond][name]]
+        sqs = [r["sqnr"] for r in results[cond][name]]
         mean_mse = sum(ms) / len(ms)
         mean_x = sum(xs) / len(xs)
+        mean_sqnr = sum(sqs) / len(sqs)
         var_mse = sum((m - mean_mse) ** 2 for m in ms) / len(ms)
         std_mse = var_mse ** 0.5
         cv_mse = (std_mse / mean_mse) if mean_mse > 0 else 0.0
@@ -46,6 +56,7 @@ for cond in CONDITIONS:
             "std_mse": std_mse,
             "cv_mse": cv_mse,
             "mean_x": mean_x,
+            "mean_sqnr": mean_sqnr,
             "min_mse": min(ms),
             "max_mse": max(ms),
         }
@@ -72,10 +83,10 @@ html.append(f"<p>Matrix size {SIZE}x{SIZE}, 10 seeds, 48 variants, no ReLU vs Re
 for cond in CONDITIONS:
     label = "No ReLU" if cond == "no_relu" else "With ReLU"
     html.append(f"<div class='card'><h2>{label}</h2>")
-    html.append("<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th></tr></thead><tbody>")
+    html.append("<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th><th>Mean SQNR dB</th></tr></thead><tbody>")
     for name in sorted(agg[cond], key=lambda n: agg[cond][n]["mean_mse"]):
         a = agg[cond][name]
-        html.append(f"<tr><td>{name}</td><td>{a['mean_mse']:.4e}</td><td>{a['std_mse']:.4e}</td><td>{a['cv_mse']:.4f}</td><td>{a['mean_x']:.2f}x</td></tr>")
+        html.append(f"<tr><td>{name}</td><td>{a['mean_mse']:.4e}</td><td>{a['std_mse']:.4e}</td><td>{a['cv_mse']:.4f}</td><td>{a['mean_x']:.2f}x</td><td>{a['mean_sqnr']:.2f}</td></tr>")
     html.append("</tbody></table></div>")
 
 html.append("<div class='card'><h2>Ratio: MSE with ReLU / MSE without ReLU</h2>")
