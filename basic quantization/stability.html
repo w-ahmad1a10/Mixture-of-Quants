@@ -1,221 +1,299 @@
-<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Stability Test</title>
-<style>body{font-family:Arial;margin:20px;background:#f5f5f5;} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;} th{background:#3498db;color:#fff;} tr:nth-child(even){background:#f9f9f9;} h2{color:#333;} .card{background:#fff;padding:16px;margin:12px 0;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}</style>
-</head><body><h1>Seed and Size Stability Test</h1>
-<p>10 seeds (0-9), 3 matrix sizes, 48 variants. Mean MSE, std MSE, CV of MSE, and mean X across seeds.</p>
+<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Stability Test with Calculator</title>
+<style>body{font-family:Arial;margin:20px;background:#f5f5f5;} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;} th{background:#3498db;color:#fff;cursor:pointer;} tr:nth-child(even){background:#f9f9f9;} h2{color:#333;} h3{color:#555;} .card{background:#fff;padding:16px;margin:12px 0;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);} .result{font-size:14px;color:#2c3e50;margin:6px 0;} .big{font-size:18px;font-weight:bold;color:#e74c3c;} select{padding:6px;font-size:13px;min-width:200px;} .row{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:8px 0;} button{padding:6px 12px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;}</style>
+</head><body><h1>Seed and Size Stability Test with Calculator</h1>
+<p>10 seeds (0-9), 4 matrix sizes, 48 variants. Mean MSE, std MSE, CV of MSE, and mean X across seeds.</p>
 <div class='card'><h2>Matrix size 256x256</h2>
-<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th></tr></thead><tbody>
-<tr><td>asym_group32_8bit</td><td>2.2386e-06</td><td>3.8476e-07</td><td>0.1719</td><td>1.01x</td></tr>
-<tr><td>asym_group64_8bit</td><td>2.7883e-06</td><td>2.7609e-07</td><td>0.0990</td><td>1.28x</td></tr>
-<tr><td>sym_group32_8bit</td><td>2.8005e-06</td><td>3.9792e-07</td><td>0.1421</td><td>1.28x</td></tr>
-<tr><td>asym_group128_8bit</td><td>3.2888e-06</td><td>2.8035e-07</td><td>0.0852</td><td>1.51x</td></tr>
-<tr><td>sym_group64_8bit</td><td>3.3066e-06</td><td>4.0168e-07</td><td>0.1215</td><td>1.52x</td></tr>
-<tr><td>asym_channel_8bit</td><td>3.8874e-06</td><td>6.1476e-07</td><td>0.1581</td><td>1.77x</td></tr>
-<tr><td>sym_group128_8bit</td><td>4.1166e-06</td><td>4.2896e-07</td><td>0.1042</td><td>1.89x</td></tr>
-<tr><td>sym_channel_8bit</td><td>4.8284e-06</td><td>6.1296e-07</td><td>0.1269</td><td>2.20x</td></tr>
-<tr><td>asym_tensor_8bit</td><td>9.5788e-06</td><td>1.2948e-06</td><td>0.1352</td><td>4.39x</td></tr>
-<tr><td>asym_layer_8bit</td><td>9.5788e-06</td><td>1.2948e-06</td><td>0.1352</td><td>4.39x</td></tr>
-<tr><td>sym_tensor_8bit</td><td>1.0682e-05</td><td>1.8243e-06</td><td>0.1708</td><td>4.87x</td></tr>
-<tr><td>sym_layer_8bit</td><td>1.0682e-05</td><td>1.8243e-06</td><td>0.1708</td><td>4.87x</td></tr>
-<tr><td>asym_group32_6bit</td><td>3.7480e-05</td><td>4.5016e-06</td><td>0.1201</td><td>17.15x</td></tr>
-<tr><td>asym_group64_6bit</td><td>4.6179e-05</td><td>3.8403e-06</td><td>0.0832</td><td>21.28x</td></tr>
-<tr><td>sym_group32_6bit</td><td>4.8477e-05</td><td>4.9432e-06</td><td>0.1020</td><td>22.21x</td></tr>
-<tr><td>asym_group128_6bit</td><td>5.7276e-05</td><td>7.9480e-06</td><td>0.1388</td><td>26.20x</td></tr>
-<tr><td>sym_group64_6bit</td><td>5.7490e-05</td><td>6.9294e-06</td><td>0.1205</td><td>26.39x</td></tr>
-<tr><td>asym_channel_6bit</td><td>6.8851e-05</td><td>5.7107e-06</td><td>0.0829</td><td>31.66x</td></tr>
-<tr><td>sym_group128_6bit</td><td>6.9066e-05</td><td>8.0932e-06</td><td>0.1172</td><td>31.67x</td></tr>
-<tr><td>sym_channel_6bit</td><td>8.1113e-05</td><td>1.1879e-05</td><td>0.1464</td><td>37.03x</td></tr>
-<tr><td>asym_tensor_6bit</td><td>1.5210e-04</td><td>1.8936e-05</td><td>0.1245</td><td>69.74x</td></tr>
-<tr><td>asym_layer_6bit</td><td>1.5210e-04</td><td>1.8936e-05</td><td>0.1245</td><td>69.74x</td></tr>
-<tr><td>sym_tensor_6bit</td><td>1.7648e-04</td><td>3.0645e-05</td><td>0.1736</td><td>79.98x</td></tr>
-<tr><td>sym_layer_6bit</td><td>1.7648e-04</td><td>3.0645e-05</td><td>0.1736</td><td>79.98x</td></tr>
-<tr><td>asym_group32_4bit</td><td>6.2099e-04</td><td>1.0517e-04</td><td>0.1694</td><td>283.65x</td></tr>
-<tr><td>asym_group64_4bit</td><td>8.5067e-04</td><td>1.3303e-04</td><td>0.1564</td><td>386.87x</td></tr>
-<tr><td>sym_group32_4bit</td><td>8.8240e-04</td><td>9.7811e-05</td><td>0.1108</td><td>406.28x</td></tr>
-<tr><td>asym_group128_4bit</td><td>9.8413e-04</td><td>1.4244e-04</td><td>0.1447</td><td>450.35x</td></tr>
-<tr><td>sym_group64_4bit</td><td>1.1176e-03</td><td>1.5214e-04</td><td>0.1361</td><td>511.00x</td></tr>
-<tr><td>asym_channel_4bit</td><td>1.1773e-03</td><td>1.7858e-04</td><td>0.1517</td><td>535.36x</td></tr>
-<tr><td>sym_group128_4bit</td><td>1.3586e-03</td><td>2.5710e-04</td><td>0.1892</td><td>613.44x</td></tr>
-<tr><td>sym_channel_4bit</td><td>1.6498e-03</td><td>2.8426e-04</td><td>0.1723</td><td>751.09x</td></tr>
-<tr><td>asym_tensor_4bit</td><td>2.8546e-03</td><td>5.6196e-04</td><td>0.1969</td><td>1291.76x</td></tr>
-<tr><td>asym_layer_4bit</td><td>2.8546e-03</td><td>5.6196e-04</td><td>0.1969</td><td>1291.76x</td></tr>
-<tr><td>asym_group32_3bit</td><td>2.9037e-03</td><td>2.9606e-04</td><td>0.1020</td><td>1338.15x</td></tr>
-<tr><td>sym_tensor_4bit</td><td>3.4572e-03</td><td>6.5911e-04</td><td>0.1906</td><td>1565.10x</td></tr>
-<tr><td>sym_layer_4bit</td><td>3.4572e-03</td><td>6.5911e-04</td><td>0.1906</td><td>1565.10x</td></tr>
-<tr><td>asym_group64_3bit</td><td>3.8160e-03</td><td>3.3546e-04</td><td>0.0879</td><td>1756.53x</td></tr>
-<tr><td>asym_group128_3bit</td><td>4.5395e-03</td><td>6.8262e-04</td><td>0.1504</td><td>2087.54x</td></tr>
-<tr><td>sym_group32_3bit</td><td>4.9971e-03</td><td>5.1976e-04</td><td>0.1040</td><td>2301.15x</td></tr>
-<tr><td>asym_channel_3bit</td><td>5.4374e-03</td><td>6.2073e-04</td><td>0.1142</td><td>2503.04x</td></tr>
-<tr><td>sym_group64_3bit</td><td>6.2476e-03</td><td>6.2421e-04</td><td>0.0999</td><td>2875.59x</td></tr>
-<tr><td>sym_group128_3bit</td><td>7.0957e-03</td><td>7.6483e-04</td><td>0.1078</td><td>3242.87x</td></tr>
-<tr><td>sym_channel_3bit</td><td>8.4294e-03</td><td>1.0939e-03</td><td>0.1298</td><td>3840.39x</td></tr>
-<tr><td>asym_tensor_3bit</td><td>1.3024e-02</td><td>2.5157e-03</td><td>0.1932</td><td>5922.57x</td></tr>
-<tr><td>asym_layer_3bit</td><td>1.3024e-02</td><td>2.5157e-03</td><td>0.1932</td><td>5922.57x</td></tr>
-<tr><td>sym_tensor_3bit</td><td>1.8502e-02</td><td>3.2244e-03</td><td>0.1743</td><td>8409.22x</td></tr>
-<tr><td>sym_layer_3bit</td><td>1.8502e-02</td><td>3.2244e-03</td><td>0.1743</td><td>8409.22x</td></tr>
-</tbody></table></div>
+<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th><th>Total bits</th><th>Size KB</th></tr></thead><tbody>
+<tr><td>asym_group32_8bit</td><td>2.2386e-06</td><td>3.8476e-07</td><td>0.1719</td><td>1.01x</td><td>589824</td><td>72.00</td></tr>
+<tr><td>asym_group64_8bit</td><td>2.7883e-06</td><td>2.7609e-07</td><td>0.0990</td><td>1.28x</td><td>557056</td><td>68.00</td></tr>
+<tr><td>sym_group32_8bit</td><td>2.8005e-06</td><td>3.9792e-07</td><td>0.1421</td><td>1.28x</td><td>557056</td><td>68.00</td></tr>
+<tr><td>asym_group128_8bit</td><td>3.2888e-06</td><td>2.8035e-07</td><td>0.0852</td><td>1.51x</td><td>540672</td><td>66.00</td></tr>
+<tr><td>sym_group64_8bit</td><td>3.3066e-06</td><td>4.0168e-07</td><td>0.1215</td><td>1.52x</td><td>540672</td><td>66.00</td></tr>
+<tr><td>asym_channel_8bit</td><td>3.8874e-06</td><td>6.1476e-07</td><td>0.1581</td><td>1.77x</td><td>532480</td><td>65.00</td></tr>
+<tr><td>sym_group128_8bit</td><td>4.1166e-06</td><td>4.2896e-07</td><td>0.1042</td><td>1.89x</td><td>532480</td><td>65.00</td></tr>
+<tr><td>sym_channel_8bit</td><td>4.8284e-06</td><td>6.1296e-07</td><td>0.1269</td><td>2.20x</td><td>528384</td><td>64.50</td></tr>
+<tr><td>asym_tensor_8bit</td><td>9.5788e-06</td><td>1.2948e-06</td><td>0.1352</td><td>4.39x</td><td>524320</td><td>64.00</td></tr>
+<tr><td>asym_layer_8bit</td><td>9.5788e-06</td><td>1.2948e-06</td><td>0.1352</td><td>4.39x</td><td>524320</td><td>64.00</td></tr>
+<tr><td>sym_tensor_8bit</td><td>1.0682e-05</td><td>1.8243e-06</td><td>0.1708</td><td>4.87x</td><td>524304</td><td>64.00</td></tr>
+<tr><td>sym_layer_8bit</td><td>1.0682e-05</td><td>1.8243e-06</td><td>0.1708</td><td>4.87x</td><td>524304</td><td>64.00</td></tr>
+<tr><td>asym_group32_6bit</td><td>3.7480e-05</td><td>4.5016e-06</td><td>0.1201</td><td>17.15x</td><td>458752</td><td>56.00</td></tr>
+<tr><td>asym_group64_6bit</td><td>4.6179e-05</td><td>3.8403e-06</td><td>0.0832</td><td>21.28x</td><td>425984</td><td>52.00</td></tr>
+<tr><td>sym_group32_6bit</td><td>4.8477e-05</td><td>4.9432e-06</td><td>0.1020</td><td>22.21x</td><td>425984</td><td>52.00</td></tr>
+<tr><td>asym_group128_6bit</td><td>5.7276e-05</td><td>7.9480e-06</td><td>0.1388</td><td>26.20x</td><td>409600</td><td>50.00</td></tr>
+<tr><td>sym_group64_6bit</td><td>5.7490e-05</td><td>6.9294e-06</td><td>0.1205</td><td>26.39x</td><td>409600</td><td>50.00</td></tr>
+<tr><td>asym_channel_6bit</td><td>6.8851e-05</td><td>5.7107e-06</td><td>0.0829</td><td>31.66x</td><td>401408</td><td>49.00</td></tr>
+<tr><td>sym_group128_6bit</td><td>6.9066e-05</td><td>8.0932e-06</td><td>0.1172</td><td>31.67x</td><td>401408</td><td>49.00</td></tr>
+<tr><td>sym_channel_6bit</td><td>8.1113e-05</td><td>1.1879e-05</td><td>0.1464</td><td>37.03x</td><td>397312</td><td>48.50</td></tr>
+<tr><td>asym_tensor_6bit</td><td>1.5210e-04</td><td>1.8936e-05</td><td>0.1245</td><td>69.74x</td><td>393248</td><td>48.00</td></tr>
+<tr><td>asym_layer_6bit</td><td>1.5210e-04</td><td>1.8936e-05</td><td>0.1245</td><td>69.74x</td><td>393248</td><td>48.00</td></tr>
+<tr><td>sym_tensor_6bit</td><td>1.7648e-04</td><td>3.0645e-05</td><td>0.1736</td><td>79.98x</td><td>393232</td><td>48.00</td></tr>
+<tr><td>sym_layer_6bit</td><td>1.7648e-04</td><td>3.0645e-05</td><td>0.1736</td><td>79.98x</td><td>393232</td><td>48.00</td></tr>
+<tr><td>asym_group32_4bit</td><td>6.2099e-04</td><td>1.0517e-04</td><td>0.1694</td><td>283.65x</td><td>327680</td><td>40.00</td></tr>
+<tr><td>asym_group64_4bit</td><td>8.5067e-04</td><td>1.3303e-04</td><td>0.1564</td><td>386.87x</td><td>294912</td><td>36.00</td></tr>
+<tr><td>sym_group32_4bit</td><td>8.8240e-04</td><td>9.7811e-05</td><td>0.1108</td><td>406.28x</td><td>294912</td><td>36.00</td></tr>
+<tr><td>asym_group128_4bit</td><td>9.8413e-04</td><td>1.4244e-04</td><td>0.1447</td><td>450.35x</td><td>278528</td><td>34.00</td></tr>
+<tr><td>sym_group64_4bit</td><td>1.1176e-03</td><td>1.5214e-04</td><td>0.1361</td><td>511.00x</td><td>278528</td><td>34.00</td></tr>
+<tr><td>asym_channel_4bit</td><td>1.1773e-03</td><td>1.7858e-04</td><td>0.1517</td><td>535.36x</td><td>270336</td><td>33.00</td></tr>
+<tr><td>sym_group128_4bit</td><td>1.3586e-03</td><td>2.5710e-04</td><td>0.1892</td><td>613.44x</td><td>270336</td><td>33.00</td></tr>
+<tr><td>sym_channel_4bit</td><td>1.6498e-03</td><td>2.8426e-04</td><td>0.1723</td><td>751.09x</td><td>266240</td><td>32.50</td></tr>
+<tr><td>asym_tensor_4bit</td><td>2.8546e-03</td><td>5.6196e-04</td><td>0.1969</td><td>1291.76x</td><td>262176</td><td>32.00</td></tr>
+<tr><td>asym_layer_4bit</td><td>2.8546e-03</td><td>5.6196e-04</td><td>0.1969</td><td>1291.76x</td><td>262176</td><td>32.00</td></tr>
+<tr><td>asym_group32_3bit</td><td>2.9037e-03</td><td>2.9606e-04</td><td>0.1020</td><td>1338.15x</td><td>262144</td><td>32.00</td></tr>
+<tr><td>sym_tensor_4bit</td><td>3.4572e-03</td><td>6.5911e-04</td><td>0.1906</td><td>1565.10x</td><td>262160</td><td>32.00</td></tr>
+<tr><td>sym_layer_4bit</td><td>3.4572e-03</td><td>6.5911e-04</td><td>0.1906</td><td>1565.10x</td><td>262160</td><td>32.00</td></tr>
+<tr><td>asym_group64_3bit</td><td>3.8160e-03</td><td>3.3546e-04</td><td>0.0879</td><td>1756.53x</td><td>229376</td><td>28.00</td></tr>
+<tr><td>asym_group128_3bit</td><td>4.5395e-03</td><td>6.8262e-04</td><td>0.1504</td><td>2087.54x</td><td>212992</td><td>26.00</td></tr>
+<tr><td>sym_group32_3bit</td><td>4.9971e-03</td><td>5.1976e-04</td><td>0.1040</td><td>2301.15x</td><td>229376</td><td>28.00</td></tr>
+<tr><td>asym_channel_3bit</td><td>5.4374e-03</td><td>6.2073e-04</td><td>0.1142</td><td>2503.04x</td><td>204800</td><td>25.00</td></tr>
+<tr><td>sym_group64_3bit</td><td>6.2476e-03</td><td>6.2421e-04</td><td>0.0999</td><td>2875.59x</td><td>212992</td><td>26.00</td></tr>
+<tr><td>sym_group128_3bit</td><td>7.0957e-03</td><td>7.6483e-04</td><td>0.1078</td><td>3242.87x</td><td>204800</td><td>25.00</td></tr>
+<tr><td>sym_channel_3bit</td><td>8.4294e-03</td><td>1.0939e-03</td><td>0.1298</td><td>3840.39x</td><td>200704</td><td>24.50</td></tr>
+<tr><td>asym_tensor_3bit</td><td>1.3024e-02</td><td>2.5157e-03</td><td>0.1932</td><td>5922.57x</td><td>196640</td><td>24.00</td></tr>
+<tr><td>asym_layer_3bit</td><td>1.3024e-02</td><td>2.5157e-03</td><td>0.1932</td><td>5922.57x</td><td>196640</td><td>24.00</td></tr>
+<tr><td>sym_tensor_3bit</td><td>1.8502e-02</td><td>3.2244e-03</td><td>0.1743</td><td>8409.22x</td><td>196624</td><td>24.00</td></tr>
+<tr><td>sym_layer_3bit</td><td>1.8502e-02</td><td>3.2244e-03</td><td>0.1743</td><td>8409.22x</td><td>196624</td><td>24.00</td></tr>
+</tbody></table>
+<p><b>Best:</b> asym_group32_8bit (mean MSE 2.2386e-06)</p>
+<p><b>Most stable:</b> asym_channel_6bit (CV 0.083), asym_group64_6bit (CV 0.083), asym_group128_8bit (CV 0.085), asym_group64_3bit (CV 0.088), asym_group64_8bit (CV 0.099)</p>
+</div>
+<div class='card'><h3>Calculator: 256x256</h3>
+<div class='row'><label>Model A:</label><select id='selA_256' onchange='updateCompare(256)'></select>
+<label>Model B:</label><select id='selB_256' onchange='updateCompare(256)'></select></div>
+<div class='result' id='resA_256'></div>
+<div class='result' id='resB_256'></div>
+<div class='result big' id='ratio_256'></div>
+<div class='result' id='trade_256'></div>
+</div>
 <div class='card'><h2>Matrix size 512x512</h2>
-<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th></tr></thead><tbody>
-<tr><td>asym_group32_8bit</td><td>4.6139e-06</td><td>3.5979e-07</td><td>0.0780</td><td>1.00x</td></tr>
-<tr><td>sym_group32_8bit</td><td>5.7143e-06</td><td>6.1182e-07</td><td>0.1071</td><td>1.24x</td></tr>
-<tr><td>asym_group64_8bit</td><td>5.7629e-06</td><td>3.2958e-07</td><td>0.0572</td><td>1.25x</td></tr>
-<tr><td>asym_group128_8bit</td><td>7.0188e-06</td><td>6.9573e-07</td><td>0.0991</td><td>1.52x</td></tr>
-<tr><td>sym_group64_8bit</td><td>7.1769e-06</td><td>5.8879e-07</td><td>0.0820</td><td>1.56x</td></tr>
-<tr><td>sym_group128_8bit</td><td>8.3426e-06</td><td>4.8916e-07</td><td>0.0586</td><td>1.82x</td></tr>
-<tr><td>asym_channel_8bit</td><td>9.4532e-06</td><td>9.2397e-07</td><td>0.0977</td><td>2.05x</td></tr>
-<tr><td>sym_channel_8bit</td><td>1.0806e-05</td><td>7.6201e-07</td><td>0.0705</td><td>2.35x</td></tr>
-<tr><td>asym_tensor_8bit</td><td>2.1776e-05</td><td>2.3159e-06</td><td>0.1063</td><td>4.72x</td></tr>
-<tr><td>asym_layer_8bit</td><td>2.1776e-05</td><td>2.3159e-06</td><td>0.1063</td><td>4.72x</td></tr>
-<tr><td>sym_tensor_8bit</td><td>2.3058e-05</td><td>1.8017e-06</td><td>0.0781</td><td>5.01x</td></tr>
-<tr><td>sym_layer_8bit</td><td>2.3058e-05</td><td>1.8017e-06</td><td>0.0781</td><td>5.01x</td></tr>
-<tr><td>asym_group32_6bit</td><td>7.4013e-05</td><td>3.7039e-06</td><td>0.0500</td><td>16.11x</td></tr>
-<tr><td>asym_group64_6bit</td><td>9.3250e-05</td><td>9.4675e-06</td><td>0.1015</td><td>20.21x</td></tr>
-<tr><td>sym_group32_6bit</td><td>9.7680e-05</td><td>6.9734e-06</td><td>0.0714</td><td>21.22x</td></tr>
-<tr><td>asym_group128_6bit</td><td>1.1565e-04</td><td>8.5840e-06</td><td>0.0742</td><td>25.12x</td></tr>
-<tr><td>sym_group64_6bit</td><td>1.2184e-04</td><td>1.1250e-05</td><td>0.0923</td><td>26.43x</td></tr>
-<tr><td>sym_group128_6bit</td><td>1.4343e-04</td><td>1.0133e-05</td><td>0.0706</td><td>31.14x</td></tr>
-<tr><td>asym_channel_6bit</td><td>1.6052e-04</td><td>1.4506e-05</td><td>0.0904</td><td>34.84x</td></tr>
-<tr><td>sym_channel_6bit</td><td>1.8768e-04</td><td>1.3402e-05</td><td>0.0714</td><td>40.77x</td></tr>
-<tr><td>asym_tensor_6bit</td><td>3.5291e-04</td><td>1.4395e-05</td><td>0.0408</td><td>76.88x</td></tr>
-<tr><td>asym_layer_6bit</td><td>3.5291e-04</td><td>1.4395e-05</td><td>0.0408</td><td>76.88x</td></tr>
-<tr><td>sym_tensor_6bit</td><td>3.8480e-04</td><td>3.8915e-05</td><td>0.1011</td><td>83.63x</td></tr>
-<tr><td>sym_layer_6bit</td><td>3.8480e-04</td><td>3.8915e-05</td><td>0.1011</td><td>83.63x</td></tr>
-<tr><td>asym_group32_4bit</td><td>1.3104e-03</td><td>1.4772e-04</td><td>0.1127</td><td>284.35x</td></tr>
-<tr><td>asym_group64_4bit</td><td>1.6362e-03</td><td>1.6795e-04</td><td>0.1026</td><td>354.54x</td></tr>
-<tr><td>sym_group32_4bit</td><td>1.8694e-03</td><td>1.7047e-04</td><td>0.0912</td><td>405.73x</td></tr>
-<tr><td>asym_group128_4bit</td><td>2.0792e-03</td><td>2.0581e-04</td><td>0.0990</td><td>451.01x</td></tr>
-<tr><td>sym_group64_4bit</td><td>2.3801e-03</td><td>2.4578e-04</td><td>0.1033</td><td>517.30x</td></tr>
-<tr><td>sym_group128_4bit</td><td>2.7284e-03</td><td>1.5908e-04</td><td>0.0583</td><td>593.34x</td></tr>
-<tr><td>asym_channel_4bit</td><td>2.8059e-03</td><td>2.1663e-04</td><td>0.0772</td><td>609.32x</td></tr>
-<tr><td>sym_channel_4bit</td><td>3.6319e-03</td><td>3.9968e-04</td><td>0.1100</td><td>789.19x</td></tr>
-<tr><td>asym_group32_3bit</td><td>5.9888e-03</td><td>5.4885e-04</td><td>0.0916</td><td>1299.73x</td></tr>
-<tr><td>asym_tensor_4bit</td><td>6.2082e-03</td><td>6.6226e-04</td><td>0.1067</td><td>1348.72x</td></tr>
-<tr><td>asym_layer_4bit</td><td>6.2082e-03</td><td>6.6226e-04</td><td>0.1067</td><td>1348.72x</td></tr>
-<tr><td>sym_tensor_4bit</td><td>7.3139e-03</td><td>7.6553e-04</td><td>0.1047</td><td>1587.99x</td></tr>
-<tr><td>sym_layer_4bit</td><td>7.3139e-03</td><td>7.6553e-04</td><td>0.1047</td><td>1587.99x</td></tr>
-<tr><td>asym_group64_3bit</td><td>7.6339e-03</td><td>9.6028e-04</td><td>0.1258</td><td>1652.85x</td></tr>
-<tr><td>asym_group128_3bit</td><td>9.3660e-03</td><td>7.5599e-04</td><td>0.0807</td><td>2032.78x</td></tr>
-<tr><td>sym_group32_3bit</td><td>1.0004e-02</td><td>8.4369e-04</td><td>0.0843</td><td>2170.14x</td></tr>
-<tr><td>sym_group64_3bit</td><td>1.2369e-02</td><td>1.0189e-03</td><td>0.0824</td><td>2692.82x</td></tr>
-<tr><td>asym_channel_3bit</td><td>1.2624e-02</td><td>9.6497e-04</td><td>0.0764</td><td>2744.30x</td></tr>
-<tr><td>sym_group128_3bit</td><td>1.4953e-02</td><td>1.0614e-03</td><td>0.0710</td><td>3253.44x</td></tr>
-<tr><td>sym_channel_3bit</td><td>1.9871e-02</td><td>1.6305e-03</td><td>0.0821</td><td>4322.76x</td></tr>
-<tr><td>asym_tensor_3bit</td><td>2.8159e-02</td><td>2.4896e-03</td><td>0.0884</td><td>6119.13x</td></tr>
-<tr><td>asym_layer_3bit</td><td>2.8159e-02</td><td>2.4896e-03</td><td>0.0884</td><td>6119.13x</td></tr>
-<tr><td>sym_tensor_3bit</td><td>4.1698e-02</td><td>3.8043e-03</td><td>0.0912</td><td>9040.37x</td></tr>
-<tr><td>sym_layer_3bit</td><td>4.1698e-02</td><td>3.8043e-03</td><td>0.0912</td><td>9040.37x</td></tr>
-</tbody></table></div>
+<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th><th>Total bits</th><th>Size KB</th></tr></thead><tbody>
+<tr><td>asym_group32_8bit</td><td>4.6139e-06</td><td>3.5979e-07</td><td>0.0780</td><td>1.00x</td><td>2359296</td><td>288.00</td></tr>
+<tr><td>sym_group32_8bit</td><td>5.7143e-06</td><td>6.1182e-07</td><td>0.1071</td><td>1.24x</td><td>2228224</td><td>272.00</td></tr>
+<tr><td>asym_group64_8bit</td><td>5.7629e-06</td><td>3.2958e-07</td><td>0.0572</td><td>1.25x</td><td>2228224</td><td>272.00</td></tr>
+<tr><td>asym_group128_8bit</td><td>7.0188e-06</td><td>6.9573e-07</td><td>0.0991</td><td>1.52x</td><td>2162688</td><td>264.00</td></tr>
+<tr><td>sym_group64_8bit</td><td>7.1769e-06</td><td>5.8879e-07</td><td>0.0820</td><td>1.56x</td><td>2162688</td><td>264.00</td></tr>
+<tr><td>sym_group128_8bit</td><td>8.3426e-06</td><td>4.8916e-07</td><td>0.0586</td><td>1.82x</td><td>2129920</td><td>260.00</td></tr>
+<tr><td>asym_channel_8bit</td><td>9.4532e-06</td><td>9.2397e-07</td><td>0.0977</td><td>2.05x</td><td>2113536</td><td>258.00</td></tr>
+<tr><td>sym_channel_8bit</td><td>1.0806e-05</td><td>7.6201e-07</td><td>0.0705</td><td>2.35x</td><td>2105344</td><td>257.00</td></tr>
+<tr><td>asym_tensor_8bit</td><td>2.1776e-05</td><td>2.3159e-06</td><td>0.1063</td><td>4.72x</td><td>2097184</td><td>256.00</td></tr>
+<tr><td>asym_layer_8bit</td><td>2.1776e-05</td><td>2.3159e-06</td><td>0.1063</td><td>4.72x</td><td>2097184</td><td>256.00</td></tr>
+<tr><td>sym_tensor_8bit</td><td>2.3058e-05</td><td>1.8017e-06</td><td>0.0781</td><td>5.01x</td><td>2097168</td><td>256.00</td></tr>
+<tr><td>sym_layer_8bit</td><td>2.3058e-05</td><td>1.8017e-06</td><td>0.0781</td><td>5.01x</td><td>2097168</td><td>256.00</td></tr>
+<tr><td>asym_group32_6bit</td><td>7.4013e-05</td><td>3.7039e-06</td><td>0.0500</td><td>16.11x</td><td>1835008</td><td>224.00</td></tr>
+<tr><td>asym_group64_6bit</td><td>9.3250e-05</td><td>9.4675e-06</td><td>0.1015</td><td>20.21x</td><td>1703936</td><td>208.00</td></tr>
+<tr><td>sym_group32_6bit</td><td>9.7680e-05</td><td>6.9734e-06</td><td>0.0714</td><td>21.22x</td><td>1703936</td><td>208.00</td></tr>
+<tr><td>asym_group128_6bit</td><td>1.1565e-04</td><td>8.5840e-06</td><td>0.0742</td><td>25.12x</td><td>1638400</td><td>200.00</td></tr>
+<tr><td>sym_group64_6bit</td><td>1.2184e-04</td><td>1.1250e-05</td><td>0.0923</td><td>26.43x</td><td>1638400</td><td>200.00</td></tr>
+<tr><td>sym_group128_6bit</td><td>1.4343e-04</td><td>1.0133e-05</td><td>0.0706</td><td>31.14x</td><td>1605632</td><td>196.00</td></tr>
+<tr><td>asym_channel_6bit</td><td>1.6052e-04</td><td>1.4506e-05</td><td>0.0904</td><td>34.84x</td><td>1589248</td><td>194.00</td></tr>
+<tr><td>sym_channel_6bit</td><td>1.8768e-04</td><td>1.3402e-05</td><td>0.0714</td><td>40.77x</td><td>1581056</td><td>193.00</td></tr>
+<tr><td>asym_tensor_6bit</td><td>3.5291e-04</td><td>1.4395e-05</td><td>0.0408</td><td>76.88x</td><td>1572896</td><td>192.00</td></tr>
+<tr><td>asym_layer_6bit</td><td>3.5291e-04</td><td>1.4395e-05</td><td>0.0408</td><td>76.88x</td><td>1572896</td><td>192.00</td></tr>
+<tr><td>sym_tensor_6bit</td><td>3.8480e-04</td><td>3.8915e-05</td><td>0.1011</td><td>83.63x</td><td>1572880</td><td>192.00</td></tr>
+<tr><td>sym_layer_6bit</td><td>3.8480e-04</td><td>3.8915e-05</td><td>0.1011</td><td>83.63x</td><td>1572880</td><td>192.00</td></tr>
+<tr><td>asym_group32_4bit</td><td>1.3104e-03</td><td>1.4772e-04</td><td>0.1127</td><td>284.35x</td><td>1310720</td><td>160.00</td></tr>
+<tr><td>asym_group64_4bit</td><td>1.6362e-03</td><td>1.6795e-04</td><td>0.1026</td><td>354.54x</td><td>1179648</td><td>144.00</td></tr>
+<tr><td>sym_group32_4bit</td><td>1.8694e-03</td><td>1.7047e-04</td><td>0.0912</td><td>405.73x</td><td>1179648</td><td>144.00</td></tr>
+<tr><td>asym_group128_4bit</td><td>2.0792e-03</td><td>2.0581e-04</td><td>0.0990</td><td>451.01x</td><td>1114112</td><td>136.00</td></tr>
+<tr><td>sym_group64_4bit</td><td>2.3801e-03</td><td>2.4578e-04</td><td>0.1033</td><td>517.30x</td><td>1114112</td><td>136.00</td></tr>
+<tr><td>sym_group128_4bit</td><td>2.7284e-03</td><td>1.5908e-04</td><td>0.0583</td><td>593.34x</td><td>1081344</td><td>132.00</td></tr>
+<tr><td>asym_channel_4bit</td><td>2.8059e-03</td><td>2.1663e-04</td><td>0.0772</td><td>609.32x</td><td>1064960</td><td>130.00</td></tr>
+<tr><td>sym_channel_4bit</td><td>3.6319e-03</td><td>3.9968e-04</td><td>0.1100</td><td>789.19x</td><td>1056768</td><td>129.00</td></tr>
+<tr><td>asym_group32_3bit</td><td>5.9888e-03</td><td>5.4885e-04</td><td>0.0916</td><td>1299.73x</td><td>1048576</td><td>128.00</td></tr>
+<tr><td>asym_tensor_4bit</td><td>6.2082e-03</td><td>6.6226e-04</td><td>0.1067</td><td>1348.72x</td><td>1048608</td><td>128.00</td></tr>
+<tr><td>asym_layer_4bit</td><td>6.2082e-03</td><td>6.6226e-04</td><td>0.1067</td><td>1348.72x</td><td>1048608</td><td>128.00</td></tr>
+<tr><td>sym_tensor_4bit</td><td>7.3139e-03</td><td>7.6553e-04</td><td>0.1047</td><td>1587.99x</td><td>1048592</td><td>128.00</td></tr>
+<tr><td>sym_layer_4bit</td><td>7.3139e-03</td><td>7.6553e-04</td><td>0.1047</td><td>1587.99x</td><td>1048592</td><td>128.00</td></tr>
+<tr><td>asym_group64_3bit</td><td>7.6339e-03</td><td>9.6028e-04</td><td>0.1258</td><td>1652.85x</td><td>917504</td><td>112.00</td></tr>
+<tr><td>asym_group128_3bit</td><td>9.3660e-03</td><td>7.5599e-04</td><td>0.0807</td><td>2032.78x</td><td>851968</td><td>104.00</td></tr>
+<tr><td>sym_group32_3bit</td><td>1.0004e-02</td><td>8.4369e-04</td><td>0.0843</td><td>2170.14x</td><td>917504</td><td>112.00</td></tr>
+<tr><td>sym_group64_3bit</td><td>1.2369e-02</td><td>1.0189e-03</td><td>0.0824</td><td>2692.82x</td><td>851968</td><td>104.00</td></tr>
+<tr><td>asym_channel_3bit</td><td>1.2624e-02</td><td>9.6497e-04</td><td>0.0764</td><td>2744.30x</td><td>802816</td><td>98.00</td></tr>
+<tr><td>sym_group128_3bit</td><td>1.4953e-02</td><td>1.0614e-03</td><td>0.0710</td><td>3253.44x</td><td>819200</td><td>100.00</td></tr>
+<tr><td>sym_channel_3bit</td><td>1.9871e-02</td><td>1.6305e-03</td><td>0.0821</td><td>4322.76x</td><td>794624</td><td>97.00</td></tr>
+<tr><td>asym_tensor_3bit</td><td>2.8159e-02</td><td>2.4896e-03</td><td>0.0884</td><td>6119.13x</td><td>786464</td><td>96.00</td></tr>
+<tr><td>asym_layer_3bit</td><td>2.8159e-02</td><td>2.4896e-03</td><td>0.0884</td><td>6119.13x</td><td>786464</td><td>96.00</td></tr>
+<tr><td>sym_tensor_3bit</td><td>4.1698e-02</td><td>3.8043e-03</td><td>0.0912</td><td>9040.37x</td><td>786448</td><td>96.00</td></tr>
+<tr><td>sym_layer_3bit</td><td>4.1698e-02</td><td>3.8043e-03</td><td>0.0912</td><td>9040.37x</td><td>786448</td><td>96.00</td></tr>
+</tbody></table>
+<p><b>Best:</b> asym_group32_8bit (mean MSE 4.6139e-06)</p>
+<p><b>Most stable:</b> asym_tensor_6bit (CV 0.041), asym_layer_6bit (CV 0.041), asym_group32_6bit (CV 0.050), asym_group64_8bit (CV 0.057), sym_group128_4bit (CV 0.058)</p>
+</div>
+<div class='card'><h3>Calculator: 512x512</h3>
+<div class='row'><label>Model A:</label><select id='selA_512' onchange='updateCompare(512)'></select>
+<label>Model B:</label><select id='selB_512' onchange='updateCompare(512)'></select></div>
+<div class='result' id='resA_512'></div>
+<div class='result' id='resB_512'></div>
+<div class='result big' id='ratio_512'></div>
+<div class='result' id='trade_512'></div>
+</div>
 <div class='card'><h2>Matrix size 1024x1024</h2>
-<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th></tr></thead><tbody>
-<tr><td>asym_group32_8bit</td><td>9.1410e-06</td><td>4.2846e-07</td><td>0.0469</td><td>1.00x</td></tr>
-<tr><td>asym_group64_8bit</td><td>1.1636e-05</td><td>3.3692e-07</td><td>0.0290</td><td>1.27x</td></tr>
-<tr><td>sym_group32_8bit</td><td>1.1768e-05</td><td>4.8367e-07</td><td>0.0411</td><td>1.29x</td></tr>
-<tr><td>sym_group64_8bit</td><td>1.4122e-05</td><td>6.7719e-07</td><td>0.0480</td><td>1.55x</td></tr>
-<tr><td>asym_group128_8bit</td><td>1.4272e-05</td><td>8.5941e-07</td><td>0.0602</td><td>1.56x</td></tr>
-<tr><td>sym_group128_8bit</td><td>1.7346e-05</td><td>9.5620e-07</td><td>0.0551</td><td>1.90x</td></tr>
-<tr><td>asym_channel_8bit</td><td>2.2225e-05</td><td>9.5065e-07</td><td>0.0428</td><td>2.43x</td></tr>
-<tr><td>sym_channel_8bit</td><td>2.5739e-05</td><td>1.6942e-06</td><td>0.0658</td><td>2.82x</td></tr>
-<tr><td>asym_tensor_8bit</td><td>5.0394e-05</td><td>3.1971e-06</td><td>0.0634</td><td>5.52x</td></tr>
-<tr><td>asym_layer_8bit</td><td>5.0394e-05</td><td>3.1971e-06</td><td>0.0634</td><td>5.52x</td></tr>
-<tr><td>sym_tensor_8bit</td><td>5.1136e-05</td><td>3.6428e-06</td><td>0.0712</td><td>5.60x</td></tr>
-<tr><td>sym_layer_8bit</td><td>5.1136e-05</td><td>3.6428e-06</td><td>0.0712</td><td>5.60x</td></tr>
-<tr><td>asym_group32_6bit</td><td>1.5442e-04</td><td>9.6592e-06</td><td>0.0626</td><td>16.90x</td></tr>
-<tr><td>asym_group64_6bit</td><td>1.9126e-04</td><td>1.1091e-05</td><td>0.0580</td><td>20.95x</td></tr>
-<tr><td>sym_group32_6bit</td><td>1.9777e-04</td><td>1.4455e-05</td><td>0.0731</td><td>21.66x</td></tr>
-<tr><td>asym_group128_6bit</td><td>2.3411e-04</td><td>1.3253e-05</td><td>0.0566</td><td>25.61x</td></tr>
-<tr><td>sym_group64_6bit</td><td>2.3805e-04</td><td>1.7713e-05</td><td>0.0744</td><td>26.06x</td></tr>
-<tr><td>sym_group128_6bit</td><td>2.9315e-04</td><td>1.3783e-05</td><td>0.0470</td><td>32.11x</td></tr>
-<tr><td>asym_channel_6bit</td><td>3.6974e-04</td><td>1.2130e-05</td><td>0.0328</td><td>40.52x</td></tr>
-<tr><td>sym_channel_6bit</td><td>4.2819e-04</td><td>1.9597e-05</td><td>0.0458</td><td>46.89x</td></tr>
-<tr><td>asym_tensor_6bit</td><td>7.9836e-04</td><td>4.3845e-05</td><td>0.0549</td><td>87.44x</td></tr>
-<tr><td>asym_layer_6bit</td><td>7.9836e-04</td><td>4.3845e-05</td><td>0.0549</td><td>87.44x</td></tr>
-<tr><td>sym_tensor_6bit</td><td>8.9276e-04</td><td>5.5465e-05</td><td>0.0621</td><td>97.80x</td></tr>
-<tr><td>sym_layer_6bit</td><td>8.9276e-04</td><td>5.5465e-05</td><td>0.0621</td><td>97.80x</td></tr>
-<tr><td>asym_group32_4bit</td><td>2.7262e-03</td><td>1.9693e-04</td><td>0.0722</td><td>298.08x</td></tr>
-<tr><td>asym_group64_4bit</td><td>3.4166e-03</td><td>1.6126e-04</td><td>0.0472</td><td>374.04x</td></tr>
-<tr><td>sym_group32_4bit</td><td>3.8673e-03</td><td>1.5763e-04</td><td>0.0408</td><td>423.70x</td></tr>
-<tr><td>asym_group128_4bit</td><td>4.1410e-03</td><td>2.5392e-04</td><td>0.0613</td><td>453.25x</td></tr>
-<tr><td>sym_group64_4bit</td><td>4.7388e-03</td><td>2.9982e-04</td><td>0.0633</td><td>518.85x</td></tr>
-<tr><td>sym_group128_4bit</td><td>5.7793e-03</td><td>4.0081e-04</td><td>0.0694</td><td>632.39x</td></tr>
-<tr><td>asym_channel_4bit</td><td>6.6910e-03</td><td>4.7486e-04</td><td>0.0710</td><td>732.05x</td></tr>
-<tr><td>sym_channel_4bit</td><td>8.5475e-03</td><td>6.4553e-04</td><td>0.0755</td><td>935.15x</td></tr>
-<tr><td>asym_group32_3bit</td><td>1.2693e-02</td><td>8.3853e-04</td><td>0.0661</td><td>1388.53x</td></tr>
-<tr><td>asym_tensor_4bit</td><td>1.4598e-02</td><td>1.2407e-03</td><td>0.0850</td><td>1598.99x</td></tr>
-<tr><td>asym_layer_4bit</td><td>1.4598e-02</td><td>1.2407e-03</td><td>0.0850</td><td>1598.99x</td></tr>
-<tr><td>asym_group64_3bit</td><td>1.5967e-02</td><td>6.7160e-04</td><td>0.0421</td><td>1748.38x</td></tr>
-<tr><td>sym_tensor_4bit</td><td>1.7198e-02</td><td>1.3750e-03</td><td>0.0800</td><td>1883.69x</td></tr>
-<tr><td>sym_layer_4bit</td><td>1.7198e-02</td><td>1.3750e-03</td><td>0.0800</td><td>1883.69x</td></tr>
-<tr><td>asym_group128_3bit</td><td>1.9588e-02</td><td>1.0485e-03</td><td>0.0535</td><td>2145.14x</td></tr>
-<tr><td>sym_group32_3bit</td><td>2.1664e-02</td><td>1.5904e-03</td><td>0.0734</td><td>2370.66x</td></tr>
-<tr><td>sym_group64_3bit</td><td>2.6570e-02</td><td>1.7911e-03</td><td>0.0674</td><td>2908.44x</td></tr>
-<tr><td>asym_channel_3bit</td><td>2.9836e-02</td><td>1.9470e-03</td><td>0.0653</td><td>3267.60x</td></tr>
-<tr><td>sym_group128_3bit</td><td>3.1018e-02</td><td>1.4612e-03</td><td>0.0471</td><td>3396.08x</td></tr>
-<tr><td>sym_channel_3bit</td><td>4.6129e-02</td><td>3.1356e-03</td><td>0.0680</td><td>5048.67x</td></tr>
-<tr><td>asym_tensor_3bit</td><td>6.5533e-02</td><td>6.4253e-03</td><td>0.0980</td><td>7169.99x</td></tr>
-<tr><td>asym_layer_3bit</td><td>6.5533e-02</td><td>6.4253e-03</td><td>0.0980</td><td>7169.99x</td></tr>
-<tr><td>sym_tensor_3bit</td><td>9.3325e-02</td><td>5.5559e-03</td><td>0.0595</td><td>10221.09x</td></tr>
-<tr><td>sym_layer_3bit</td><td>9.3325e-02</td><td>5.5559e-03</td><td>0.0595</td><td>10221.09x</td></tr>
-</tbody></table></div>
+<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th><th>Total bits</th><th>Size KB</th></tr></thead><tbody>
+<tr><td>asym_group32_8bit</td><td>9.1410e-06</td><td>4.2846e-07</td><td>0.0469</td><td>1.00x</td><td>9437184</td><td>1152.00</td></tr>
+<tr><td>asym_group64_8bit</td><td>1.1636e-05</td><td>3.3692e-07</td><td>0.0290</td><td>1.27x</td><td>8912896</td><td>1088.00</td></tr>
+<tr><td>sym_group32_8bit</td><td>1.1768e-05</td><td>4.8367e-07</td><td>0.0411</td><td>1.29x</td><td>8912896</td><td>1088.00</td></tr>
+<tr><td>sym_group64_8bit</td><td>1.4122e-05</td><td>6.7719e-07</td><td>0.0480</td><td>1.55x</td><td>8650752</td><td>1056.00</td></tr>
+<tr><td>asym_group128_8bit</td><td>1.4272e-05</td><td>8.5941e-07</td><td>0.0602</td><td>1.56x</td><td>8650752</td><td>1056.00</td></tr>
+<tr><td>sym_group128_8bit</td><td>1.7346e-05</td><td>9.5620e-07</td><td>0.0551</td><td>1.90x</td><td>8519680</td><td>1040.00</td></tr>
+<tr><td>asym_channel_8bit</td><td>2.2225e-05</td><td>9.5065e-07</td><td>0.0428</td><td>2.43x</td><td>8421376</td><td>1028.00</td></tr>
+<tr><td>sym_channel_8bit</td><td>2.5739e-05</td><td>1.6942e-06</td><td>0.0658</td><td>2.82x</td><td>8404992</td><td>1026.00</td></tr>
+<tr><td>asym_tensor_8bit</td><td>5.0394e-05</td><td>3.1971e-06</td><td>0.0634</td><td>5.52x</td><td>8388640</td><td>1024.00</td></tr>
+<tr><td>asym_layer_8bit</td><td>5.0394e-05</td><td>3.1971e-06</td><td>0.0634</td><td>5.52x</td><td>8388640</td><td>1024.00</td></tr>
+<tr><td>sym_tensor_8bit</td><td>5.1136e-05</td><td>3.6428e-06</td><td>0.0712</td><td>5.60x</td><td>8388624</td><td>1024.00</td></tr>
+<tr><td>sym_layer_8bit</td><td>5.1136e-05</td><td>3.6428e-06</td><td>0.0712</td><td>5.60x</td><td>8388624</td><td>1024.00</td></tr>
+<tr><td>asym_group32_6bit</td><td>1.5442e-04</td><td>9.6592e-06</td><td>0.0626</td><td>16.90x</td><td>7340032</td><td>896.00</td></tr>
+<tr><td>asym_group64_6bit</td><td>1.9126e-04</td><td>1.1091e-05</td><td>0.0580</td><td>20.95x</td><td>6815744</td><td>832.00</td></tr>
+<tr><td>sym_group32_6bit</td><td>1.9777e-04</td><td>1.4455e-05</td><td>0.0731</td><td>21.66x</td><td>6815744</td><td>832.00</td></tr>
+<tr><td>asym_group128_6bit</td><td>2.3411e-04</td><td>1.3253e-05</td><td>0.0566</td><td>25.61x</td><td>6553600</td><td>800.00</td></tr>
+<tr><td>sym_group64_6bit</td><td>2.3805e-04</td><td>1.7713e-05</td><td>0.0744</td><td>26.06x</td><td>6553600</td><td>800.00</td></tr>
+<tr><td>sym_group128_6bit</td><td>2.9315e-04</td><td>1.3783e-05</td><td>0.0470</td><td>32.11x</td><td>6422528</td><td>784.00</td></tr>
+<tr><td>asym_channel_6bit</td><td>3.6974e-04</td><td>1.2130e-05</td><td>0.0328</td><td>40.52x</td><td>6324224</td><td>772.00</td></tr>
+<tr><td>sym_channel_6bit</td><td>4.2819e-04</td><td>1.9597e-05</td><td>0.0458</td><td>46.89x</td><td>6307840</td><td>770.00</td></tr>
+<tr><td>asym_tensor_6bit</td><td>7.9836e-04</td><td>4.3845e-05</td><td>0.0549</td><td>87.44x</td><td>6291488</td><td>768.00</td></tr>
+<tr><td>asym_layer_6bit</td><td>7.9836e-04</td><td>4.3845e-05</td><td>0.0549</td><td>87.44x</td><td>6291488</td><td>768.00</td></tr>
+<tr><td>sym_tensor_6bit</td><td>8.9276e-04</td><td>5.5465e-05</td><td>0.0621</td><td>97.80x</td><td>6291472</td><td>768.00</td></tr>
+<tr><td>sym_layer_6bit</td><td>8.9276e-04</td><td>5.5465e-05</td><td>0.0621</td><td>97.80x</td><td>6291472</td><td>768.00</td></tr>
+<tr><td>asym_group32_4bit</td><td>2.7262e-03</td><td>1.9693e-04</td><td>0.0722</td><td>298.08x</td><td>5242880</td><td>640.00</td></tr>
+<tr><td>asym_group64_4bit</td><td>3.4166e-03</td><td>1.6126e-04</td><td>0.0472</td><td>374.04x</td><td>4718592</td><td>576.00</td></tr>
+<tr><td>sym_group32_4bit</td><td>3.8673e-03</td><td>1.5763e-04</td><td>0.0408</td><td>423.70x</td><td>4718592</td><td>576.00</td></tr>
+<tr><td>asym_group128_4bit</td><td>4.1410e-03</td><td>2.5392e-04</td><td>0.0613</td><td>453.25x</td><td>4456448</td><td>544.00</td></tr>
+<tr><td>sym_group64_4bit</td><td>4.7388e-03</td><td>2.9982e-04</td><td>0.0633</td><td>518.85x</td><td>4456448</td><td>544.00</td></tr>
+<tr><td>sym_group128_4bit</td><td>5.7793e-03</td><td>4.0081e-04</td><td>0.0694</td><td>632.39x</td><td>4325376</td><td>528.00</td></tr>
+<tr><td>asym_channel_4bit</td><td>6.6910e-03</td><td>4.7486e-04</td><td>0.0710</td><td>732.05x</td><td>4227072</td><td>516.00</td></tr>
+<tr><td>sym_channel_4bit</td><td>8.5475e-03</td><td>6.4553e-04</td><td>0.0755</td><td>935.15x</td><td>4210688</td><td>514.00</td></tr>
+<tr><td>asym_group32_3bit</td><td>1.2693e-02</td><td>8.3853e-04</td><td>0.0661</td><td>1388.53x</td><td>4194304</td><td>512.00</td></tr>
+<tr><td>asym_tensor_4bit</td><td>1.4598e-02</td><td>1.2407e-03</td><td>0.0850</td><td>1598.99x</td><td>4194336</td><td>512.00</td></tr>
+<tr><td>asym_layer_4bit</td><td>1.4598e-02</td><td>1.2407e-03</td><td>0.0850</td><td>1598.99x</td><td>4194336</td><td>512.00</td></tr>
+<tr><td>asym_group64_3bit</td><td>1.5967e-02</td><td>6.7160e-04</td><td>0.0421</td><td>1748.38x</td><td>3670016</td><td>448.00</td></tr>
+<tr><td>sym_tensor_4bit</td><td>1.7198e-02</td><td>1.3750e-03</td><td>0.0800</td><td>1883.69x</td><td>4194320</td><td>512.00</td></tr>
+<tr><td>sym_layer_4bit</td><td>1.7198e-02</td><td>1.3750e-03</td><td>0.0800</td><td>1883.69x</td><td>4194320</td><td>512.00</td></tr>
+<tr><td>asym_group128_3bit</td><td>1.9588e-02</td><td>1.0485e-03</td><td>0.0535</td><td>2145.14x</td><td>3407872</td><td>416.00</td></tr>
+<tr><td>sym_group32_3bit</td><td>2.1664e-02</td><td>1.5904e-03</td><td>0.0734</td><td>2370.66x</td><td>3670016</td><td>448.00</td></tr>
+<tr><td>sym_group64_3bit</td><td>2.6570e-02</td><td>1.7911e-03</td><td>0.0674</td><td>2908.44x</td><td>3407872</td><td>416.00</td></tr>
+<tr><td>asym_channel_3bit</td><td>2.9836e-02</td><td>1.9470e-03</td><td>0.0653</td><td>3267.60x</td><td>3178496</td><td>388.00</td></tr>
+<tr><td>sym_group128_3bit</td><td>3.1018e-02</td><td>1.4612e-03</td><td>0.0471</td><td>3396.08x</td><td>3276800</td><td>400.00</td></tr>
+<tr><td>sym_channel_3bit</td><td>4.6129e-02</td><td>3.1356e-03</td><td>0.0680</td><td>5048.67x</td><td>3162112</td><td>386.00</td></tr>
+<tr><td>asym_tensor_3bit</td><td>6.5533e-02</td><td>6.4253e-03</td><td>0.0980</td><td>7169.99x</td><td>3145760</td><td>384.00</td></tr>
+<tr><td>asym_layer_3bit</td><td>6.5533e-02</td><td>6.4253e-03</td><td>0.0980</td><td>7169.99x</td><td>3145760</td><td>384.00</td></tr>
+<tr><td>sym_tensor_3bit</td><td>9.3325e-02</td><td>5.5559e-03</td><td>0.0595</td><td>10221.09x</td><td>3145744</td><td>384.00</td></tr>
+<tr><td>sym_layer_3bit</td><td>9.3325e-02</td><td>5.5559e-03</td><td>0.0595</td><td>10221.09x</td><td>3145744</td><td>384.00</td></tr>
+</tbody></table>
+<p><b>Best:</b> asym_group32_8bit (mean MSE 9.1410e-06)</p>
+<p><b>Most stable:</b> asym_group64_8bit (CV 0.029), asym_channel_6bit (CV 0.033), sym_group32_4bit (CV 0.041), sym_group32_8bit (CV 0.041), asym_group64_3bit (CV 0.042)</p>
+</div>
+<div class='card'><h3>Calculator: 1024x1024</h3>
+<div class='row'><label>Model A:</label><select id='selA_1024' onchange='updateCompare(1024)'></select>
+<label>Model B:</label><select id='selB_1024' onchange='updateCompare(1024)'></select></div>
+<div class='result' id='resA_1024'></div>
+<div class='result' id='resB_1024'></div>
+<div class='result big' id='ratio_1024'></div>
+<div class='result' id='trade_1024'></div>
+</div>
 <div class='card'><h2>Matrix size 2048x2048</h2>
-<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th></tr></thead><tbody>
-<tr><td>asym_group32_8bit</td><td>1.8828e-05</td><td>3.6839e-07</td><td>0.0196</td><td>1.00x</td></tr>
-<tr><td>sym_group32_8bit</td><td>2.3298e-05</td><td>5.1898e-07</td><td>0.0223</td><td>1.24x</td></tr>
-<tr><td>asym_group64_8bit</td><td>2.3985e-05</td><td>6.0088e-07</td><td>0.0251</td><td>1.27x</td></tr>
-<tr><td>asym_group128_8bit</td><td>2.8609e-05</td><td>7.9188e-07</td><td>0.0277</td><td>1.52x</td></tr>
-<tr><td>sym_group64_8bit</td><td>2.9077e-05</td><td>9.3104e-07</td><td>0.0320</td><td>1.54x</td></tr>
-<tr><td>sym_group128_8bit</td><td>3.4367e-05</td><td>1.0231e-06</td><td>0.0298</td><td>1.83x</td></tr>
-<tr><td>asym_channel_8bit</td><td>5.0553e-05</td><td>1.6293e-06</td><td>0.0322</td><td>2.69x</td></tr>
-<tr><td>sym_channel_8bit</td><td>5.5856e-05</td><td>1.5237e-06</td><td>0.0273</td><td>2.97x</td></tr>
-<tr><td>asym_tensor_8bit</td><td>1.0633e-04</td><td>6.0883e-06</td><td>0.0573</td><td>5.65x</td></tr>
-<tr><td>asym_layer_8bit</td><td>1.0633e-04</td><td>6.0883e-06</td><td>0.0573</td><td>5.65x</td></tr>
-<tr><td>sym_tensor_8bit</td><td>1.1235e-04</td><td>7.6062e-06</td><td>0.0677</td><td>5.97x</td></tr>
-<tr><td>sym_layer_8bit</td><td>1.1235e-04</td><td>7.6062e-06</td><td>0.0677</td><td>5.97x</td></tr>
-<tr><td>asym_group32_6bit</td><td>2.9779e-04</td><td>1.2128e-05</td><td>0.0407</td><td>15.82x</td></tr>
-<tr><td>asym_group64_6bit</td><td>3.8795e-04</td><td>1.2442e-05</td><td>0.0321</td><td>20.61x</td></tr>
-<tr><td>sym_group32_6bit</td><td>3.9362e-04</td><td>1.0162e-05</td><td>0.0258</td><td>20.92x</td></tr>
-<tr><td>asym_group128_6bit</td><td>4.6634e-04</td><td>1.0298e-05</td><td>0.0221</td><td>24.77x</td></tr>
-<tr><td>sym_group64_6bit</td><td>4.8815e-04</td><td>1.6797e-05</td><td>0.0344</td><td>25.93x</td></tr>
-<tr><td>sym_group128_6bit</td><td>5.8574e-04</td><td>2.7110e-05</td><td>0.0463</td><td>31.10x</td></tr>
-<tr><td>asym_channel_6bit</td><td>8.1688e-04</td><td>2.9165e-05</td><td>0.0357</td><td>43.39x</td></tr>
-<tr><td>sym_channel_6bit</td><td>9.4484e-04</td><td>2.9404e-05</td><td>0.0311</td><td>50.20x</td></tr>
-<tr><td>asym_tensor_6bit</td><td>1.7154e-03</td><td>1.2619e-04</td><td>0.0736</td><td>91.08x</td></tr>
-<tr><td>asym_layer_6bit</td><td>1.7154e-03</td><td>1.2619e-04</td><td>0.0736</td><td>91.08x</td></tr>
-<tr><td>sym_tensor_6bit</td><td>1.8552e-03</td><td>9.3306e-05</td><td>0.0503</td><td>98.52x</td></tr>
-<tr><td>sym_layer_6bit</td><td>1.8552e-03</td><td>9.3306e-05</td><td>0.0503</td><td>98.52x</td></tr>
-<tr><td>asym_group32_4bit</td><td>5.3695e-03</td><td>1.6807e-04</td><td>0.0313</td><td>285.23x</td></tr>
-<tr><td>asym_group64_4bit</td><td>6.8145e-03</td><td>1.7431e-04</td><td>0.0256</td><td>362.03x</td></tr>
-<tr><td>sym_group32_4bit</td><td>7.8297e-03</td><td>3.2868e-04</td><td>0.0420</td><td>415.91x</td></tr>
-<tr><td>asym_group128_4bit</td><td>8.4146e-03</td><td>2.9653e-04</td><td>0.0352</td><td>446.98x</td></tr>
-<tr><td>sym_group64_4bit</td><td>9.6426e-03</td><td>4.2059e-04</td><td>0.0436</td><td>512.08x</td></tr>
-<tr><td>sym_group128_4bit</td><td>1.1514e-02</td><td>3.8093e-04</td><td>0.0331</td><td>611.67x</td></tr>
-<tr><td>asym_channel_4bit</td><td>1.4461e-02</td><td>5.6856e-04</td><td>0.0393</td><td>768.25x</td></tr>
-<tr><td>sym_channel_4bit</td><td>1.8839e-02</td><td>7.5455e-04</td><td>0.0401</td><td>1000.58x</td></tr>
-<tr><td>asym_group32_3bit</td><td>2.4890e-02</td><td>7.7016e-04</td><td>0.0309</td><td>1322.27x</td></tr>
-<tr><td>asym_tensor_4bit</td><td>3.1001e-02</td><td>1.9638e-03</td><td>0.0633</td><td>1645.94x</td></tr>
-<tr><td>asym_layer_4bit</td><td>3.1001e-02</td><td>1.9638e-03</td><td>0.0633</td><td>1645.94x</td></tr>
-<tr><td>asym_group64_3bit</td><td>3.1505e-02</td><td>1.2915e-03</td><td>0.0410</td><td>1673.75x</td></tr>
-<tr><td>sym_tensor_4bit</td><td>3.6486e-02</td><td>2.8998e-03</td><td>0.0795</td><td>1937.01x</td></tr>
-<tr><td>sym_layer_4bit</td><td>3.6486e-02</td><td>2.8998e-03</td><td>0.0795</td><td>1937.01x</td></tr>
-<tr><td>asym_group128_3bit</td><td>3.7751e-02</td><td>1.5371e-03</td><td>0.0407</td><td>2005.30x</td></tr>
-<tr><td>sym_group32_3bit</td><td>4.3015e-02</td><td>1.8518e-03</td><td>0.0430</td><td>2284.29x</td></tr>
-<tr><td>sym_group64_3bit</td><td>5.1811e-02</td><td>1.5194e-03</td><td>0.0293</td><td>2751.94x</td></tr>
-<tr><td>sym_group128_3bit</td><td>6.1555e-02</td><td>1.7288e-03</td><td>0.0281</td><td>3269.88x</td></tr>
-<tr><td>asym_channel_3bit</td><td>6.6775e-02</td><td>2.4356e-03</td><td>0.0365</td><td>3547.11x</td></tr>
-<tr><td>sym_channel_3bit</td><td>1.0127e-01</td><td>5.1022e-03</td><td>0.0504</td><td>5377.29x</td></tr>
-<tr><td>asym_tensor_3bit</td><td>1.4319e-01</td><td>8.7686e-03</td><td>0.0612</td><td>7602.55x</td></tr>
-<tr><td>asym_layer_3bit</td><td>1.4319e-01</td><td>8.7686e-03</td><td>0.0612</td><td>7602.55x</td></tr>
-<tr><td>sym_tensor_3bit</td><td>1.9990e-01</td><td>1.3499e-02</td><td>0.0675</td><td>10615.62x</td></tr>
-<tr><td>sym_layer_3bit</td><td>1.9990e-01</td><td>1.3499e-02</td><td>0.0675</td><td>10615.62x</td></tr>
-</tbody></table></div>
-<div class='card'><h2>Most stable variants (lowest CV of MSE)</h2>
-<p><b>256x256:</b> asym_channel_6bit (CV 0.083), asym_group64_6bit (CV 0.083), asym_group128_8bit (CV 0.085), asym_group64_3bit (CV 0.088), asym_group64_8bit (CV 0.099)</p>
-<p><b>512x512:</b> asym_tensor_6bit (CV 0.041), asym_layer_6bit (CV 0.041), asym_group32_6bit (CV 0.050), asym_group64_8bit (CV 0.057), sym_group128_4bit (CV 0.058)</p>
-<p><b>1024x1024:</b> asym_group64_8bit (CV 0.029), asym_channel_6bit (CV 0.033), sym_group32_4bit (CV 0.041), sym_group32_8bit (CV 0.041), asym_group64_3bit (CV 0.042)</p>
-<p><b>2048x2048:</b> asym_group32_8bit (CV 0.020), asym_group128_6bit (CV 0.022), sym_group32_8bit (CV 0.022), asym_group64_8bit (CV 0.025), asym_group64_4bit (CV 0.026)</p>
+<table><thead><tr><th>Variant</th><th>Mean MSE</th><th>Std MSE</th><th>CV of MSE</th><th>Mean X</th><th>Total bits</th><th>Size KB</th></tr></thead><tbody>
+<tr><td>asym_group32_8bit</td><td>1.8828e-05</td><td>3.6839e-07</td><td>0.0196</td><td>1.00x</td><td>37748736</td><td>4608.00</td></tr>
+<tr><td>sym_group32_8bit</td><td>2.3298e-05</td><td>5.1898e-07</td><td>0.0223</td><td>1.24x</td><td>35651584</td><td>4352.00</td></tr>
+<tr><td>asym_group64_8bit</td><td>2.3985e-05</td><td>6.0088e-07</td><td>0.0251</td><td>1.27x</td><td>35651584</td><td>4352.00</td></tr>
+<tr><td>asym_group128_8bit</td><td>2.8609e-05</td><td>7.9188e-07</td><td>0.0277</td><td>1.52x</td><td>34603008</td><td>4224.00</td></tr>
+<tr><td>sym_group64_8bit</td><td>2.9077e-05</td><td>9.3104e-07</td><td>0.0320</td><td>1.54x</td><td>34603008</td><td>4224.00</td></tr>
+<tr><td>sym_group128_8bit</td><td>3.4367e-05</td><td>1.0231e-06</td><td>0.0298</td><td>1.83x</td><td>34078720</td><td>4160.00</td></tr>
+<tr><td>asym_channel_8bit</td><td>5.0553e-05</td><td>1.6293e-06</td><td>0.0322</td><td>2.69x</td><td>33619968</td><td>4104.00</td></tr>
+<tr><td>sym_channel_8bit</td><td>5.5856e-05</td><td>1.5237e-06</td><td>0.0273</td><td>2.97x</td><td>33587200</td><td>4100.00</td></tr>
+<tr><td>asym_tensor_8bit</td><td>1.0633e-04</td><td>6.0883e-06</td><td>0.0573</td><td>5.65x</td><td>33554464</td><td>4096.00</td></tr>
+<tr><td>asym_layer_8bit</td><td>1.0633e-04</td><td>6.0883e-06</td><td>0.0573</td><td>5.65x</td><td>33554464</td><td>4096.00</td></tr>
+<tr><td>sym_tensor_8bit</td><td>1.1235e-04</td><td>7.6062e-06</td><td>0.0677</td><td>5.97x</td><td>33554448</td><td>4096.00</td></tr>
+<tr><td>sym_layer_8bit</td><td>1.1235e-04</td><td>7.6062e-06</td><td>0.0677</td><td>5.97x</td><td>33554448</td><td>4096.00</td></tr>
+<tr><td>asym_group32_6bit</td><td>2.9779e-04</td><td>1.2128e-05</td><td>0.0407</td><td>15.82x</td><td>29360128</td><td>3584.00</td></tr>
+<tr><td>asym_group64_6bit</td><td>3.8795e-04</td><td>1.2442e-05</td><td>0.0321</td><td>20.61x</td><td>27262976</td><td>3328.00</td></tr>
+<tr><td>sym_group32_6bit</td><td>3.9362e-04</td><td>1.0162e-05</td><td>0.0258</td><td>20.92x</td><td>27262976</td><td>3328.00</td></tr>
+<tr><td>asym_group128_6bit</td><td>4.6634e-04</td><td>1.0298e-05</td><td>0.0221</td><td>24.77x</td><td>26214400</td><td>3200.00</td></tr>
+<tr><td>sym_group64_6bit</td><td>4.8815e-04</td><td>1.6797e-05</td><td>0.0344</td><td>25.93x</td><td>26214400</td><td>3200.00</td></tr>
+<tr><td>sym_group128_6bit</td><td>5.8574e-04</td><td>2.7110e-05</td><td>0.0463</td><td>31.10x</td><td>25690112</td><td>3136.00</td></tr>
+<tr><td>asym_channel_6bit</td><td>8.1688e-04</td><td>2.9165e-05</td><td>0.0357</td><td>43.39x</td><td>25231360</td><td>3080.00</td></tr>
+<tr><td>sym_channel_6bit</td><td>9.4484e-04</td><td>2.9404e-05</td><td>0.0311</td><td>50.20x</td><td>25198592</td><td>3076.00</td></tr>
+<tr><td>asym_tensor_6bit</td><td>1.7154e-03</td><td>1.2619e-04</td><td>0.0736</td><td>91.08x</td><td>25165856</td><td>3072.00</td></tr>
+<tr><td>asym_layer_6bit</td><td>1.7154e-03</td><td>1.2619e-04</td><td>0.0736</td><td>91.08x</td><td>25165856</td><td>3072.00</td></tr>
+<tr><td>sym_tensor_6bit</td><td>1.8552e-03</td><td>9.3306e-05</td><td>0.0503</td><td>98.52x</td><td>25165840</td><td>3072.00</td></tr>
+<tr><td>sym_layer_6bit</td><td>1.8552e-03</td><td>9.3306e-05</td><td>0.0503</td><td>98.52x</td><td>25165840</td><td>3072.00</td></tr>
+<tr><td>asym_group32_4bit</td><td>5.3695e-03</td><td>1.6807e-04</td><td>0.0313</td><td>285.23x</td><td>20971520</td><td>2560.00</td></tr>
+<tr><td>asym_group64_4bit</td><td>6.8145e-03</td><td>1.7431e-04</td><td>0.0256</td><td>362.03x</td><td>18874368</td><td>2304.00</td></tr>
+<tr><td>sym_group32_4bit</td><td>7.8297e-03</td><td>3.2868e-04</td><td>0.0420</td><td>415.91x</td><td>18874368</td><td>2304.00</td></tr>
+<tr><td>asym_group128_4bit</td><td>8.4146e-03</td><td>2.9653e-04</td><td>0.0352</td><td>446.98x</td><td>17825792</td><td>2176.00</td></tr>
+<tr><td>sym_group64_4bit</td><td>9.6426e-03</td><td>4.2059e-04</td><td>0.0436</td><td>512.08x</td><td>17825792</td><td>2176.00</td></tr>
+<tr><td>sym_group128_4bit</td><td>1.1514e-02</td><td>3.8093e-04</td><td>0.0331</td><td>611.67x</td><td>17301504</td><td>2112.00</td></tr>
+<tr><td>asym_channel_4bit</td><td>1.4461e-02</td><td>5.6856e-04</td><td>0.0393</td><td>768.25x</td><td>16842752</td><td>2056.00</td></tr>
+<tr><td>sym_channel_4bit</td><td>1.8839e-02</td><td>7.5455e-04</td><td>0.0401</td><td>1000.58x</td><td>16809984</td><td>2052.00</td></tr>
+<tr><td>asym_group32_3bit</td><td>2.4890e-02</td><td>7.7016e-04</td><td>0.0309</td><td>1322.27x</td><td>16777216</td><td>2048.00</td></tr>
+<tr><td>asym_tensor_4bit</td><td>3.1001e-02</td><td>1.9638e-03</td><td>0.0633</td><td>1645.94x</td><td>16777248</td><td>2048.00</td></tr>
+<tr><td>asym_layer_4bit</td><td>3.1001e-02</td><td>1.9638e-03</td><td>0.0633</td><td>1645.94x</td><td>16777248</td><td>2048.00</td></tr>
+<tr><td>asym_group64_3bit</td><td>3.1505e-02</td><td>1.2915e-03</td><td>0.0410</td><td>1673.75x</td><td>14680064</td><td>1792.00</td></tr>
+<tr><td>sym_tensor_4bit</td><td>3.6486e-02</td><td>2.8998e-03</td><td>0.0795</td><td>1937.01x</td><td>16777232</td><td>2048.00</td></tr>
+<tr><td>sym_layer_4bit</td><td>3.6486e-02</td><td>2.8998e-03</td><td>0.0795</td><td>1937.01x</td><td>16777232</td><td>2048.00</td></tr>
+<tr><td>asym_group128_3bit</td><td>3.7751e-02</td><td>1.5371e-03</td><td>0.0407</td><td>2005.30x</td><td>13631488</td><td>1664.00</td></tr>
+<tr><td>sym_group32_3bit</td><td>4.3015e-02</td><td>1.8518e-03</td><td>0.0430</td><td>2284.29x</td><td>14680064</td><td>1792.00</td></tr>
+<tr><td>sym_group64_3bit</td><td>5.1811e-02</td><td>1.5194e-03</td><td>0.0293</td><td>2751.94x</td><td>13631488</td><td>1664.00</td></tr>
+<tr><td>sym_group128_3bit</td><td>6.1555e-02</td><td>1.7288e-03</td><td>0.0281</td><td>3269.88x</td><td>13107200</td><td>1600.00</td></tr>
+<tr><td>asym_channel_3bit</td><td>6.6775e-02</td><td>2.4356e-03</td><td>0.0365</td><td>3547.11x</td><td>12648448</td><td>1544.00</td></tr>
+<tr><td>sym_channel_3bit</td><td>1.0127e-01</td><td>5.1022e-03</td><td>0.0504</td><td>5377.29x</td><td>12615680</td><td>1540.00</td></tr>
+<tr><td>asym_tensor_3bit</td><td>1.4319e-01</td><td>8.7686e-03</td><td>0.0612</td><td>7602.55x</td><td>12582944</td><td>1536.00</td></tr>
+<tr><td>asym_layer_3bit</td><td>1.4319e-01</td><td>8.7686e-03</td><td>0.0612</td><td>7602.55x</td><td>12582944</td><td>1536.00</td></tr>
+<tr><td>sym_tensor_3bit</td><td>1.9990e-01</td><td>1.3499e-02</td><td>0.0675</td><td>10615.62x</td><td>12582928</td><td>1536.00</td></tr>
+<tr><td>sym_layer_3bit</td><td>1.9990e-01</td><td>1.3499e-02</td><td>0.0675</td><td>10615.62x</td><td>12582928</td><td>1536.00</td></tr>
+</tbody></table>
+<p><b>Best:</b> asym_group32_8bit (mean MSE 1.8828e-05)</p>
+<p><b>Most stable:</b> asym_group32_8bit (CV 0.020), asym_group128_6bit (CV 0.022), sym_group32_8bit (CV 0.022), asym_group64_8bit (CV 0.025), asym_group64_4bit (CV 0.026)</p>
 </div>
-<div class='card'><h2>Best variant per size (by mean MSE)</h2>
-<p><b>256x256:</b> asym_group32_8bit (mean MSE 2.2386e-06)</p>
-<p><b>512x512:</b> asym_group32_8bit (mean MSE 4.6139e-06)</p>
-<p><b>1024x1024:</b> asym_group32_8bit (mean MSE 9.1410e-06)</p>
-<p><b>2048x2048:</b> asym_group32_8bit (mean MSE 1.8828e-05)</p>
+<div class='card'><h3>Calculator: 2048x2048</h3>
+<div class='row'><label>Model A:</label><select id='selA_2048' onchange='updateCompare(2048)'></select>
+<label>Model B:</label><select id='selB_2048' onchange='updateCompare(2048)'></select></div>
+<div class='result' id='resA_2048'></div>
+<div class='result' id='resB_2048'></div>
+<div class='result big' id='ratio_2048'></div>
+<div class='result' id='trade_2048'></div>
 </div>
+<script>
+const data256 = [{name:"asym_group32_8bit", bits:8, mse:2.238606e-06, x:1.01, oh:12.50, total:589824, kb:72.00},{name:"asym_group64_8bit", bits:8, mse:2.788259e-06, x:1.28, oh:6.25, total:557056, kb:68.00},{name:"sym_group32_8bit", bits:8, mse:2.800490e-06, x:1.28, oh:6.25, total:557056, kb:68.00},{name:"asym_group128_8bit", bits:8, mse:3.288842e-06, x:1.51, oh:3.12, total:540672, kb:66.00},{name:"sym_group64_8bit", bits:8, mse:3.306587e-06, x:1.52, oh:3.12, total:540672, kb:66.00},{name:"asym_channel_8bit", bits:8, mse:3.887448e-06, x:1.77, oh:1.56, total:532480, kb:65.00},{name:"sym_group128_8bit", bits:8, mse:4.116611e-06, x:1.89, oh:1.56, total:532480, kb:65.00},{name:"sym_channel_8bit", bits:8, mse:4.828445e-06, x:2.20, oh:0.78, total:528384, kb:64.50},{name:"asym_tensor_8bit", bits:8, mse:9.578827e-06, x:4.39, oh:0.01, total:524320, kb:64.00},{name:"asym_layer_8bit", bits:8, mse:9.578827e-06, x:4.39, oh:0.01, total:524320, kb:64.00},{name:"sym_tensor_8bit", bits:8, mse:1.068249e-05, x:4.87, oh:0.00, total:524304, kb:64.00},{name:"sym_layer_8bit", bits:8, mse:1.068249e-05, x:4.87, oh:0.00, total:524304, kb:64.00},{name:"asym_group32_6bit", bits:6, mse:3.748013e-05, x:17.15, oh:16.67, total:458752, kb:56.00},{name:"asym_group64_6bit", bits:6, mse:4.617872e-05, x:21.28, oh:8.33, total:425984, kb:52.00},{name:"sym_group32_6bit", bits:6, mse:4.847735e-05, x:22.21, oh:8.33, total:425984, kb:52.00},{name:"asym_group128_6bit", bits:6, mse:5.727572e-05, x:26.20, oh:4.17, total:409600, kb:50.00},{name:"sym_group64_6bit", bits:6, mse:5.749028e-05, x:26.39, oh:4.17, total:409600, kb:50.00},{name:"asym_channel_6bit", bits:6, mse:6.885120e-05, x:31.66, oh:2.08, total:401408, kb:49.00},{name:"sym_group128_6bit", bits:6, mse:6.906551e-05, x:31.67, oh:2.08, total:401408, kb:49.00},{name:"sym_channel_6bit", bits:6, mse:8.111278e-05, x:37.03, oh:1.04, total:397312, kb:48.50},{name:"asym_tensor_6bit", bits:6, mse:1.520953e-04, x:69.74, oh:0.01, total:393248, kb:48.00},{name:"asym_layer_6bit", bits:6, mse:1.520953e-04, x:69.74, oh:0.01, total:393248, kb:48.00},{name:"sym_tensor_6bit", bits:6, mse:1.764819e-04, x:79.98, oh:0.00, total:393232, kb:48.00},{name:"sym_layer_6bit", bits:6, mse:1.764819e-04, x:79.98, oh:0.00, total:393232, kb:48.00},{name:"asym_group32_4bit", bits:4, mse:6.209902e-04, x:283.65, oh:25.00, total:327680, kb:40.00},{name:"asym_group64_4bit", bits:4, mse:8.506677e-04, x:386.87, oh:12.50, total:294912, kb:36.00},{name:"sym_group32_4bit", bits:4, mse:8.823975e-04, x:406.28, oh:12.50, total:294912, kb:36.00},{name:"asym_group128_4bit", bits:4, mse:9.841316e-04, x:450.35, oh:6.25, total:278528, kb:34.00},{name:"sym_group64_4bit", bits:4, mse:1.117565e-03, x:511.00, oh:6.25, total:278528, kb:34.00},{name:"asym_channel_4bit", bits:4, mse:1.177264e-03, x:535.36, oh:3.12, total:270336, kb:33.00},{name:"sym_group128_4bit", bits:4, mse:1.358564e-03, x:613.44, oh:3.12, total:270336, kb:33.00},{name:"sym_channel_4bit", bits:4, mse:1.649796e-03, x:751.09, oh:1.56, total:266240, kb:32.50},{name:"asym_tensor_4bit", bits:4, mse:2.854610e-03, x:1291.76, oh:0.01, total:262176, kb:32.00},{name:"asym_layer_4bit", bits:4, mse:2.854610e-03, x:1291.76, oh:0.01, total:262176, kb:32.00},{name:"asym_group32_3bit", bits:3, mse:2.903667e-03, x:1338.15, oh:33.33, total:262144, kb:32.00},{name:"sym_tensor_4bit", bits:4, mse:3.457187e-03, x:1565.10, oh:0.01, total:262160, kb:32.00},{name:"sym_layer_4bit", bits:4, mse:3.457187e-03, x:1565.10, oh:0.01, total:262160, kb:32.00},{name:"asym_group64_3bit", bits:3, mse:3.816020e-03, x:1756.53, oh:16.67, total:229376, kb:28.00},{name:"asym_group128_3bit", bits:3, mse:4.539492e-03, x:2087.54, oh:8.33, total:212992, kb:26.00},{name:"sym_group32_3bit", bits:3, mse:4.997142e-03, x:2301.15, oh:16.67, total:229376, kb:28.00},{name:"asym_channel_3bit", bits:3, mse:5.437442e-03, x:2503.04, oh:4.17, total:204800, kb:25.00},{name:"sym_group64_3bit", bits:3, mse:6.247638e-03, x:2875.59, oh:8.33, total:212992, kb:26.00},{name:"sym_group128_3bit", bits:3, mse:7.095656e-03, x:3242.87, oh:4.17, total:204800, kb:25.00},{name:"sym_channel_3bit", bits:3, mse:8.429406e-03, x:3840.39, oh:2.08, total:200704, kb:24.50},{name:"asym_tensor_3bit", bits:3, mse:1.302376e-02, x:5922.57, oh:0.02, total:196640, kb:24.00},{name:"asym_layer_3bit", bits:3, mse:1.302376e-02, x:5922.57, oh:0.02, total:196640, kb:24.00},{name:"sym_tensor_3bit", bits:3, mse:1.850230e-02, x:8409.22, oh:0.01, total:196624, kb:24.00},{name:"sym_layer_3bit", bits:3, mse:1.850230e-02, x:8409.22, oh:0.01, total:196624, kb:24.00}];
+const data512 = [{name:"asym_group32_8bit", bits:8, mse:4.613888e-06, x:1.00, oh:12.50, total:2359296, kb:288.00},{name:"sym_group32_8bit", bits:8, mse:5.714336e-06, x:1.24, oh:6.25, total:2228224, kb:272.00},{name:"asym_group64_8bit", bits:8, mse:5.762854e-06, x:1.25, oh:6.25, total:2228224, kb:272.00},{name:"asym_group128_8bit", bits:8, mse:7.018797e-06, x:1.52, oh:3.12, total:2162688, kb:264.00},{name:"sym_group64_8bit", bits:8, mse:7.176895e-06, x:1.56, oh:3.12, total:2162688, kb:264.00},{name:"sym_group128_8bit", bits:8, mse:8.342643e-06, x:1.82, oh:1.56, total:2129920, kb:260.00},{name:"asym_channel_8bit", bits:8, mse:9.453228e-06, x:2.05, oh:0.78, total:2113536, kb:258.00},{name:"sym_channel_8bit", bits:8, mse:1.080554e-05, x:2.35, oh:0.39, total:2105344, kb:257.00},{name:"asym_tensor_8bit", bits:8, mse:2.177646e-05, x:4.72, oh:0.00, total:2097184, kb:256.00},{name:"asym_layer_8bit", bits:8, mse:2.177646e-05, x:4.72, oh:0.00, total:2097184, kb:256.00},{name:"sym_tensor_8bit", bits:8, mse:2.305814e-05, x:5.01, oh:0.00, total:2097168, kb:256.00},{name:"sym_layer_8bit", bits:8, mse:2.305814e-05, x:5.01, oh:0.00, total:2097168, kb:256.00},{name:"asym_group32_6bit", bits:6, mse:7.401314e-05, x:16.11, oh:16.67, total:1835008, kb:224.00},{name:"asym_group64_6bit", bits:6, mse:9.325007e-05, x:20.21, oh:8.33, total:1703936, kb:208.00},{name:"sym_group32_6bit", bits:6, mse:9.768026e-05, x:21.22, oh:8.33, total:1703936, kb:208.00},{name:"asym_group128_6bit", bits:6, mse:1.156465e-04, x:25.12, oh:4.17, total:1638400, kb:200.00},{name:"sym_group64_6bit", bits:6, mse:1.218412e-04, x:26.43, oh:4.17, total:1638400, kb:200.00},{name:"sym_group128_6bit", bits:6, mse:1.434278e-04, x:31.14, oh:2.08, total:1605632, kb:196.00},{name:"asym_channel_6bit", bits:6, mse:1.605176e-04, x:34.84, oh:1.04, total:1589248, kb:194.00},{name:"sym_channel_6bit", bits:6, mse:1.876835e-04, x:40.77, oh:0.52, total:1581056, kb:193.00},{name:"asym_tensor_6bit", bits:6, mse:3.529097e-04, x:76.88, oh:0.00, total:1572896, kb:192.00},{name:"asym_layer_6bit", bits:6, mse:3.529097e-04, x:76.88, oh:0.00, total:1572896, kb:192.00},{name:"sym_tensor_6bit", bits:6, mse:3.848017e-04, x:83.63, oh:0.00, total:1572880, kb:192.00},{name:"sym_layer_6bit", bits:6, mse:3.848017e-04, x:83.63, oh:0.00, total:1572880, kb:192.00},{name:"asym_group32_4bit", bits:4, mse:1.310379e-03, x:284.35, oh:25.00, total:1310720, kb:160.00},{name:"asym_group64_4bit", bits:4, mse:1.636202e-03, x:354.54, oh:12.50, total:1179648, kb:144.00},{name:"sym_group32_4bit", bits:4, mse:1.869359e-03, x:405.73, oh:12.50, total:1179648, kb:144.00},{name:"asym_group128_4bit", bits:4, mse:2.079241e-03, x:451.01, oh:6.25, total:1114112, kb:136.00},{name:"sym_group64_4bit", bits:4, mse:2.380085e-03, x:517.30, oh:6.25, total:1114112, kb:136.00},{name:"sym_group128_4bit", bits:4, mse:2.728411e-03, x:593.34, oh:3.12, total:1081344, kb:132.00},{name:"asym_channel_4bit", bits:4, mse:2.805933e-03, x:609.32, oh:1.56, total:1064960, kb:130.00},{name:"sym_channel_4bit", bits:4, mse:3.631878e-03, x:789.19, oh:0.78, total:1056768, kb:129.00},{name:"asym_group32_3bit", bits:3, mse:5.988755e-03, x:1299.73, oh:33.33, total:1048576, kb:128.00},{name:"asym_tensor_4bit", bits:4, mse:6.208230e-03, x:1348.72, oh:0.00, total:1048608, kb:128.00},{name:"asym_layer_4bit", bits:4, mse:6.208230e-03, x:1348.72, oh:0.00, total:1048608, kb:128.00},{name:"sym_tensor_4bit", bits:4, mse:7.313862e-03, x:1587.99, oh:0.00, total:1048592, kb:128.00},{name:"sym_layer_4bit", bits:4, mse:7.313862e-03, x:1587.99, oh:0.00, total:1048592, kb:128.00},{name:"asym_group64_3bit", bits:3, mse:7.633866e-03, x:1652.85, oh:16.67, total:917504, kb:112.00},{name:"asym_group128_3bit", bits:3, mse:9.366044e-03, x:2032.78, oh:8.33, total:851968, kb:104.00},{name:"sym_group32_3bit", bits:3, mse:1.000422e-02, x:2170.14, oh:16.67, total:917504, kb:112.00},{name:"sym_group64_3bit", bits:3, mse:1.236948e-02, x:2692.82, oh:8.33, total:851968, kb:104.00},{name:"asym_channel_3bit", bits:3, mse:1.262410e-02, x:2744.30, oh:2.08, total:802816, kb:98.00},{name:"sym_group128_3bit", bits:3, mse:1.495277e-02, x:3253.44, oh:4.17, total:819200, kb:100.00},{name:"sym_channel_3bit", bits:3, mse:1.987109e-02, x:4322.76, oh:1.04, total:794624, kb:97.00},{name:"asym_tensor_3bit", bits:3, mse:2.815919e-02, x:6119.13, oh:0.00, total:786464, kb:96.00},{name:"asym_layer_3bit", bits:3, mse:2.815919e-02, x:6119.13, oh:0.00, total:786464, kb:96.00},{name:"sym_tensor_3bit", bits:3, mse:4.169822e-02, x:9040.37, oh:0.00, total:786448, kb:96.00},{name:"sym_layer_3bit", bits:3, mse:4.169822e-02, x:9040.37, oh:0.00, total:786448, kb:96.00}];
+const data1024 = [{name:"asym_group32_8bit", bits:8, mse:9.141004e-06, x:1.00, oh:12.50, total:9437184, kb:1152.00},{name:"asym_group64_8bit", bits:8, mse:1.163629e-05, x:1.27, oh:6.25, total:8912896, kb:1088.00},{name:"sym_group32_8bit", bits:8, mse:1.176833e-05, x:1.29, oh:6.25, total:8912896, kb:1088.00},{name:"sym_group64_8bit", bits:8, mse:1.412211e-05, x:1.55, oh:3.12, total:8650752, kb:1056.00},{name:"asym_group128_8bit", bits:8, mse:1.427166e-05, x:1.56, oh:3.12, total:8650752, kb:1056.00},{name:"sym_group128_8bit", bits:8, mse:1.734552e-05, x:1.90, oh:1.56, total:8519680, kb:1040.00},{name:"asym_channel_8bit", bits:8, mse:2.222508e-05, x:2.43, oh:0.39, total:8421376, kb:1028.00},{name:"sym_channel_8bit", bits:8, mse:2.573905e-05, x:2.82, oh:0.20, total:8404992, kb:1026.00},{name:"asym_tensor_8bit", bits:8, mse:5.039420e-05, x:5.52, oh:0.00, total:8388640, kb:1024.00},{name:"asym_layer_8bit", bits:8, mse:5.039420e-05, x:5.52, oh:0.00, total:8388640, kb:1024.00},{name:"sym_tensor_8bit", bits:8, mse:5.113616e-05, x:5.60, oh:0.00, total:8388624, kb:1024.00},{name:"sym_layer_8bit", bits:8, mse:5.113616e-05, x:5.60, oh:0.00, total:8388624, kb:1024.00},{name:"asym_group32_6bit", bits:6, mse:1.544180e-04, x:16.90, oh:16.67, total:7340032, kb:896.00},{name:"asym_group64_6bit", bits:6, mse:1.912601e-04, x:20.95, oh:8.33, total:6815744, kb:832.00},{name:"sym_group32_6bit", bits:6, mse:1.977674e-04, x:21.66, oh:8.33, total:6815744, kb:832.00},{name:"asym_group128_6bit", bits:6, mse:2.341050e-04, x:25.61, oh:4.17, total:6553600, kb:800.00},{name:"sym_group64_6bit", bits:6, mse:2.380527e-04, x:26.06, oh:4.17, total:6553600, kb:800.00},{name:"sym_group128_6bit", bits:6, mse:2.931459e-04, x:32.11, oh:2.08, total:6422528, kb:784.00},{name:"asym_channel_6bit", bits:6, mse:3.697415e-04, x:40.52, oh:0.52, total:6324224, kb:772.00},{name:"sym_channel_6bit", bits:6, mse:4.281910e-04, x:46.89, oh:0.26, total:6307840, kb:770.00},{name:"asym_tensor_6bit", bits:6, mse:7.983561e-04, x:87.44, oh:0.00, total:6291488, kb:768.00},{name:"asym_layer_6bit", bits:6, mse:7.983561e-04, x:87.44, oh:0.00, total:6291488, kb:768.00},{name:"sym_tensor_6bit", bits:6, mse:8.927603e-04, x:97.80, oh:0.00, total:6291472, kb:768.00},{name:"sym_layer_6bit", bits:6, mse:8.927603e-04, x:97.80, oh:0.00, total:6291472, kb:768.00},{name:"asym_group32_4bit", bits:4, mse:2.726156e-03, x:298.08, oh:25.00, total:5242880, kb:640.00},{name:"asym_group64_4bit", bits:4, mse:3.416615e-03, x:374.04, oh:12.50, total:4718592, kb:576.00},{name:"sym_group32_4bit", bits:4, mse:3.867256e-03, x:423.70, oh:12.50, total:4718592, kb:576.00},{name:"asym_group128_4bit", bits:4, mse:4.140984e-03, x:453.25, oh:6.25, total:4456448, kb:544.00},{name:"sym_group64_4bit", bits:4, mse:4.738828e-03, x:518.85, oh:6.25, total:4456448, kb:544.00},{name:"sym_group128_4bit", bits:4, mse:5.779320e-03, x:632.39, oh:3.12, total:4325376, kb:528.00},{name:"asym_channel_4bit", bits:4, mse:6.690950e-03, x:732.05, oh:0.78, total:4227072, kb:516.00},{name:"sym_channel_4bit", bits:4, mse:8.547464e-03, x:935.15, oh:0.39, total:4210688, kb:514.00},{name:"asym_group32_3bit", bits:3, mse:1.269334e-02, x:1388.53, oh:33.33, total:4194304, kb:512.00},{name:"asym_tensor_4bit", bits:4, mse:1.459776e-02, x:1598.99, oh:0.00, total:4194336, kb:512.00},{name:"asym_layer_4bit", bits:4, mse:1.459776e-02, x:1598.99, oh:0.00, total:4194336, kb:512.00},{name:"asym_group64_3bit", bits:3, mse:1.596748e-02, x:1748.38, oh:16.67, total:3670016, kb:448.00},{name:"sym_tensor_4bit", bits:4, mse:1.719767e-02, x:1883.69, oh:0.00, total:4194320, kb:512.00},{name:"sym_layer_4bit", bits:4, mse:1.719767e-02, x:1883.69, oh:0.00, total:4194320, kb:512.00},{name:"asym_group128_3bit", bits:3, mse:1.958834e-02, x:2145.14, oh:8.33, total:3407872, kb:416.00},{name:"sym_group32_3bit", bits:3, mse:2.166423e-02, x:2370.66, oh:16.67, total:3670016, kb:448.00},{name:"sym_group64_3bit", bits:3, mse:2.656996e-02, x:2908.44, oh:8.33, total:3407872, kb:416.00},{name:"asym_channel_3bit", bits:3, mse:2.983569e-02, x:3267.60, oh:1.04, total:3178496, kb:388.00},{name:"sym_group128_3bit", bits:3, mse:3.101774e-02, x:3396.08, oh:4.17, total:3276800, kb:400.00},{name:"sym_channel_3bit", bits:3, mse:4.612854e-02, x:5048.67, oh:0.52, total:3162112, kb:386.00},{name:"asym_tensor_3bit", bits:3, mse:6.553279e-02, x:7169.99, oh:0.00, total:3145760, kb:384.00},{name:"asym_layer_3bit", bits:3, mse:6.553279e-02, x:7169.99, oh:0.00, total:3145760, kb:384.00},{name:"sym_tensor_3bit", bits:3, mse:9.332494e-02, x:10221.09, oh:0.00, total:3145744, kb:384.00},{name:"sym_layer_3bit", bits:3, mse:9.332494e-02, x:10221.09, oh:0.00, total:3145744, kb:384.00}];
+const data2048 = [{name:"asym_group32_8bit", bits:8, mse:1.882761e-05, x:1.00, oh:12.50, total:37748736, kb:4608.00},{name:"sym_group32_8bit", bits:8, mse:2.329782e-05, x:1.24, oh:6.25, total:35651584, kb:4352.00},{name:"asym_group64_8bit", bits:8, mse:2.398480e-05, x:1.27, oh:6.25, total:35651584, kb:4352.00},{name:"asym_group128_8bit", bits:8, mse:2.860857e-05, x:1.52, oh:3.12, total:34603008, kb:4224.00},{name:"sym_group64_8bit", bits:8, mse:2.907731e-05, x:1.54, oh:3.12, total:34603008, kb:4224.00},{name:"sym_group128_8bit", bits:8, mse:3.436709e-05, x:1.83, oh:1.56, total:34078720, kb:4160.00},{name:"asym_channel_8bit", bits:8, mse:5.055329e-05, x:2.69, oh:0.20, total:33619968, kb:4104.00},{name:"sym_channel_8bit", bits:8, mse:5.585550e-05, x:2.97, oh:0.10, total:33587200, kb:4100.00},{name:"asym_tensor_8bit", bits:8, mse:1.063333e-04, x:5.65, oh:0.00, total:33554464, kb:4096.00},{name:"asym_layer_8bit", bits:8, mse:1.063333e-04, x:5.65, oh:0.00, total:33554464, kb:4096.00},{name:"sym_tensor_8bit", bits:8, mse:1.123459e-04, x:5.97, oh:0.00, total:33554448, kb:4096.00},{name:"sym_layer_8bit", bits:8, mse:1.123459e-04, x:5.97, oh:0.00, total:33554448, kb:4096.00},{name:"asym_group32_6bit", bits:6, mse:2.977890e-04, x:15.82, oh:16.67, total:29360128, kb:3584.00},{name:"asym_group64_6bit", bits:6, mse:3.879464e-04, x:20.61, oh:8.33, total:27262976, kb:3328.00},{name:"sym_group32_6bit", bits:6, mse:3.936154e-04, x:20.92, oh:8.33, total:27262976, kb:3328.00},{name:"asym_group128_6bit", bits:6, mse:4.663381e-04, x:24.77, oh:4.17, total:26214400, kb:3200.00},{name:"sym_group64_6bit", bits:6, mse:4.881476e-04, x:25.93, oh:4.17, total:26214400, kb:3200.00},{name:"sym_group128_6bit", bits:6, mse:5.857441e-04, x:31.10, oh:2.08, total:25690112, kb:3136.00},{name:"asym_channel_6bit", bits:6, mse:8.168838e-04, x:43.39, oh:0.26, total:25231360, kb:3080.00},{name:"sym_channel_6bit", bits:6, mse:9.448409e-04, x:50.20, oh:0.13, total:25198592, kb:3076.00},{name:"asym_tensor_6bit", bits:6, mse:1.715423e-03, x:91.08, oh:0.00, total:25165856, kb:3072.00},{name:"asym_layer_6bit", bits:6, mse:1.715423e-03, x:91.08, oh:0.00, total:25165856, kb:3072.00},{name:"sym_tensor_6bit", bits:6, mse:1.855178e-03, x:98.52, oh:0.00, total:25165840, kb:3072.00},{name:"sym_layer_6bit", bits:6, mse:1.855178e-03, x:98.52, oh:0.00, total:25165840, kb:3072.00},{name:"asym_group32_4bit", bits:4, mse:5.369488e-03, x:285.23, oh:25.00, total:20971520, kb:2560.00},{name:"asym_group64_4bit", bits:4, mse:6.814468e-03, x:362.03, oh:12.50, total:18874368, kb:2304.00},{name:"sym_group32_4bit", bits:4, mse:7.829653e-03, x:415.91, oh:12.50, total:18874368, kb:2304.00},{name:"asym_group128_4bit", bits:4, mse:8.414566e-03, x:446.98, oh:6.25, total:17825792, kb:2176.00},{name:"sym_group64_4bit", bits:4, mse:9.642552e-03, x:512.08, oh:6.25, total:17825792, kb:2176.00},{name:"sym_group128_4bit", bits:4, mse:1.151397e-02, x:611.67, oh:3.12, total:17301504, kb:2112.00},{name:"asym_channel_4bit", bits:4, mse:1.446135e-02, x:768.25, oh:0.39, total:16842752, kb:2056.00},{name:"sym_channel_4bit", bits:4, mse:1.883920e-02, x:1000.58, oh:0.20, total:16809984, kb:2052.00},{name:"asym_group32_3bit", bits:3, mse:2.488968e-02, x:1322.27, oh:33.33, total:16777216, kb:2048.00},{name:"asym_tensor_4bit", bits:4, mse:3.100093e-02, x:1645.94, oh:0.00, total:16777248, kb:2048.00},{name:"asym_layer_4bit", bits:4, mse:3.100093e-02, x:1645.94, oh:0.00, total:16777248, kb:2048.00},{name:"asym_group64_3bit", bits:3, mse:3.150472e-02, x:1673.75, oh:16.67, total:14680064, kb:1792.00},{name:"sym_tensor_4bit", bits:4, mse:3.648610e-02, x:1937.01, oh:0.00, total:16777232, kb:2048.00},{name:"sym_layer_4bit", bits:4, mse:3.648610e-02, x:1937.01, oh:0.00, total:16777232, kb:2048.00},{name:"asym_group128_3bit", bits:3, mse:3.775145e-02, x:2005.30, oh:8.33, total:13631488, kb:1664.00},{name:"sym_group32_3bit", bits:3, mse:4.301543e-02, x:2284.29, oh:16.67, total:14680064, kb:1792.00},{name:"sym_group64_3bit", bits:3, mse:5.181077e-02, x:2751.94, oh:8.33, total:13631488, kb:1664.00},{name:"sym_group128_3bit", bits:3, mse:6.155511e-02, x:3269.88, oh:4.17, total:13107200, kb:1600.00},{name:"asym_channel_3bit", bits:3, mse:6.677537e-02, x:3547.11, oh:0.52, total:12648448, kb:1544.00},{name:"sym_channel_3bit", bits:3, mse:1.012673e-01, x:5377.29, oh:0.26, total:12615680, kb:1540.00},{name:"asym_tensor_3bit", bits:3, mse:1.431889e-01, x:7602.55, oh:0.00, total:12582944, kb:1536.00},{name:"asym_layer_3bit", bits:3, mse:1.431889e-01, x:7602.55, oh:0.00, total:12582944, kb:1536.00},{name:"sym_tensor_3bit", bits:3, mse:1.999034e-01, x:10615.62, oh:0.00, total:12582928, kb:1536.00},{name:"sym_layer_3bit", bits:3, mse:1.999034e-01, x:10615.62, oh:0.00, total:12582928, kb:1536.00}];
+
+function populate(size) {
+  const selA = document.getElementById('selA_' + size);
+  const selB = document.getElementById('selB_' + size);
+  const data = window['data' + size];
+  selA.innerHTML = ''; selB.innerHTML = '';
+  data.forEach((d, i) => {
+    selA.add(new Option(d.name, i));
+    selB.add(new Option(d.name, i));
+  });
+  if (selB.options.length > 1) selB.selectedIndex = 1;
+}
+function updateCompare(size) {
+  const data = window['data' + size];
+  const a = data[document.getElementById('selA_' + size).selectedIndex];
+  const b = data[document.getElementById('selB_' + size).selectedIndex];
+  if (!a || !b) return;
+  document.getElementById('resA_' + size).innerHTML =
+    "<b>" + a.name + "</b>: Mean MSE = " + a.mse.toExponential(4) +
+    ", Mean X = " + a.x.toFixed(2) + "x, Overhead = " + a.oh.toFixed(2) + "%, Size = " + a.kb.toFixed(2) + " KB";
+  document.getElementById('resB_' + size).innerHTML =
+    "<b>" + b.name + "</b>: Mean MSE = " + b.mse.toExponential(4) +
+    ", Mean X = " + b.x.toFixed(2) + "x, Overhead = " + b.oh.toFixed(2) + "%, Size = " + b.kb.toFixed(2) + " KB";
+  const ratio = b.mse / a.mse;
+  document.getElementById('ratio_' + size).innerText =
+    "Model B has " + ratio.toFixed(2) + "x the error of Model A.";
+  const sizeDiff = Math.abs(a.kb - b.kb);
+  const smallerMse = Math.min(a.mse, b.mse);
+  const largerMse = Math.max(a.mse, b.mse);
+  const errorPctMore = smallerMse > 0 ? ((largerMse - smallerMse) / smallerMse * 100) : 0;
+  const bigger = a.mse > b.mse ? a.name : b.name;
+  const smaller = a.mse > b.mse ? b.name : a.name;
+  document.getElementById('trade_' + size).innerText =
+    "Size difference: " + sizeDiff.toFixed(2) + " KB. " + bigger + " has " + errorPctMore.toFixed(1) + "% more error than " + smaller + ".";
+}
+
+populate(256); updateCompare(256);
+populate(512); updateCompare(512);
+populate(1024); updateCompare(1024);
+populate(2048); updateCompare(2048);
+</script>
 </body></html>
