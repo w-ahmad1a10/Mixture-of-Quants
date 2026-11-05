@@ -26,15 +26,24 @@ model = AutoModelForCausalLM.from_pretrained(
 # pick middle layer query projection
 target = None
 target_name = None
-for name, module in model.named_modules():
-    if "layers.12" in name and name.endswith("q_proj") and hasattr(module, "weight"):
-        target = module.weight.data.detach().clone().float()
-        target_name = name
+candidates = [n for n, m in model.named_modules() if hasattr(m, "weight") and m.weight.dim() >= 2]
+print("num candidates:", len(candidates), flush=True)
+print("first 10:", candidates[:10], flush=True)
+# try to find a middle layer weight
+for keyword in ("layers.12", "layers.11", "layers.10"):
+    for name, module in model.named_modules():
+        if keyword in name and name.endswith("weight") and hasattr(module, "weight") and module.weight.dim() >= 2 and "norm" not in name.lower():
+            target = module.weight.data.detach().clone().float()
+            target_name = name
+            break
+    if target is not None:
         break
 if target is None:
-    # fallback: first 2D weight
-    for name, module in model.named_modules():
-        if hasattr(module, "weight") and module.weight.dim() >= 2:
+    # pick a middle candidate
+    mid = len(candidates) // 2
+    name = candidates[mid]
+    for n, module in model.named_modules():
+        if n == name:
             target = module.weight.data.detach().clone().float()
             target_name = name
             break
@@ -57,7 +66,7 @@ for sym, gran, gs, bits in VARIANTS:
     mse = F.mse_loss(yq, y).item()
     wvar = W.var().item()
     wnoise = ((W - Wq) ** 2).mean().item()
-    sqnr = 10.0 * (wvar / wnoise).log10().item() if (wnoise > 0 and wvar > 0) else float("inf")
+    sqnr = 10.0 * math.log10(wvar / wnoise) if (wnoise > 0 and wvar > 0) else float("inf")
     rows.append({"name": variant_name(sym, gran, gs, bits), "bits": bits,
                  "mse": mse, "sqnr": sqnr, "granularity": gran, "symmetric": sym, "gs": gs})
 
