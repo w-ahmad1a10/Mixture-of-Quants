@@ -57,6 +57,8 @@
         <th onclick="sortTable(2)">MSE</th>
         <th onclick="sortTable(3)">X-times</th>
         <th onclick="sortTable(4)">Overhead %</th>
+        <th onclick="sortTable(5)">Total bits</th>
+        <th onclick="sortTable(6)">Size KB</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -65,46 +67,46 @@
 
 <script>
 const data = [
- {name:"asym_group32", bits:3, mse:0.005429445, x:1.00, oh:33.33},
- {name:"asym_group64", bits:3, mse:0.006884052, x:1.27, oh:16.67},
- {name:"asym_group128", bits:3, mse:0.008886034, x:1.64, oh:8.33},
- {name:"sym_group32", bits:3, mse:0.009949792, x:1.83, oh:16.67},
- {name:"sym_group64", bits:3, mse:0.01346596, x:2.48, oh:8.33},
- {name:"asym_channel", bits:3, mse:0.01349947, x:2.49, oh:2.08},
- {name:"sym_group128", bits:3, mse:0.01503087, x:2.77, oh:4.17},
- {name:"sym_channel", bits:3, mse:0.01851936, x:3.41, oh:1.04},
- {name:"asym_tensor", bits:3, mse:0.02851805, x:5.25, oh:0.00},
- {name:"sym_tensor", bits:3, mse:0.03913943, x:7.21, oh:0.00},
- {name:"asym_group32", bits:4, mse:0.001250711, x:1.00, oh:25.00},
- {name:"asym_group64", bits:4, mse:0.001721061, x:1.38, oh:12.50},
- {name:"sym_group32", bits:4, mse:0.001848271, x:1.48, oh:12.50},
- {name:"asym_group128", bits:4, mse:0.002004518, x:1.60, oh:6.25},
- {name:"sym_group64", bits:4, mse:0.002343813, x:1.87, oh:6.25},
- {name:"sym_group128", bits:4, mse:0.002488448, x:1.99, oh:3.13},
- {name:"asym_channel", bits:4, mse:0.002491839, x:1.99, oh:1.56},
- {name:"sym_channel", bits:4, mse:0.003447016, x:2.76, oh:0.78},
- {name:"asym_tensor", bits:4, mse:0.005481911, x:4.38, oh:0.00},
- {name:"sym_tensor", bits:4, mse:0.006867167, x:5.49, oh:0.00},
- {name:"asym_group32", bits:6, mse:0.00006755863, x:1.00, oh:16.67},
- {name:"asym_group64", bits:6, mse:0.00009331138, x:1.38, oh:8.33},
- {name:"sym_group32", bits:6, mse:0.00009906423, x:1.47, oh:8.33},
- {name:"asym_group128", bits:6, mse:0.0001109101, x:1.64, oh:4.17},
- {name:"sym_group64", bits:6, mse:0.0001214576, x:1.80, oh:4.17},
- {name:"sym_group128", bits:6, mse:0.0001292651, x:1.91, oh:2.08},
- {name:"asym_channel", bits:6, mse:0.0001515799, x:2.24, oh:1.04},
- {name:"sym_channel", bits:6, mse:0.0001792970, x:2.65, oh:0.52},
- {name:"asym_tensor", bits:6, mse:0.0003292388, x:4.87, oh:0.00},
- {name:"sym_tensor", bits:6, mse:0.0004100839, x:6.07, oh:0.00},
- {name:"asym_group32", bits:8, mse:0.000004348916, x:1.00, oh:12.50},
- {name:"asym_group64", bits:8, mse:0.000004522607, x:1.04, oh:6.25},
- {name:"sym_group32", bits:8, mse:0.000005775476, x:1.33, oh:6.25},
- {name:"asym_group128", bits:8, mse:0.000006501965, x:1.50, oh:3.13},
- {name:"sym_group64", bits:8, mse:0.000006809107, x:1.57, oh:3.13},
- {name:"sym_group128", bits:8, mse:0.000007259965, x:1.67, oh:1.56},
- {name:"asym_channel", bits:8, mse:0.000009060444, x:2.08, oh:0.78},
- {name:"sym_channel", bits:8, mse:0.00001022835, x:2.35, oh:0.39},
- {name:"asym_tensor", bits:8, mse:0.00001970352, x:4.53, oh:0.00},
- {name:"sym_tensor", bits:8, mse:0.00002109177, x:4.85, oh:0.00}
+  {name:"sym_tensor_3bit", bits:3, mse:3.913943e-02, x:7.21, oh:0.00, total:786448, kb:96.00},
+  {name:"sym_channel_3bit", bits:3, mse:1.851936e-02, x:3.41, oh:1.04, total:794624, kb:97.00},
+  {name:"sym_group32_3bit", bits:3, mse:9.949792e-03, x:1.83, oh:16.67, total:917504, kb:112.00},
+  {name:"sym_group64_3bit", bits:3, mse:1.346596e-02, x:2.48, oh:8.33, total:851968, kb:104.00},
+  {name:"sym_group128_3bit", bits:3, mse:1.503087e-02, x:2.77, oh:4.17, total:819200, kb:100.00},
+  {name:"sym_tensor_4bit", bits:4, mse:6.867167e-03, x:5.49, oh:0.00, total:1048592, kb:128.00},
+  {name:"sym_channel_4bit", bits:4, mse:3.447016e-03, x:2.76, oh:0.78, total:1056768, kb:129.00},
+  {name:"sym_group32_4bit", bits:4, mse:1.848271e-03, x:1.48, oh:12.50, total:1179648, kb:144.00},
+  {name:"sym_group64_4bit", bits:4, mse:2.343813e-03, x:1.87, oh:6.25, total:1114112, kb:136.00},
+  {name:"sym_group128_4bit", bits:4, mse:2.488448e-03, x:1.99, oh:3.12, total:1081344, kb:132.00},
+  {name:"sym_tensor_6bit", bits:6, mse:4.100839e-04, x:6.07, oh:0.00, total:1572880, kb:192.00},
+  {name:"sym_channel_6bit", bits:6, mse:1.792970e-04, x:2.65, oh:0.52, total:1581056, kb:193.00},
+  {name:"sym_group32_6bit", bits:6, mse:9.906423e-05, x:1.47, oh:8.33, total:1703936, kb:208.00},
+  {name:"sym_group64_6bit", bits:6, mse:1.214576e-04, x:1.80, oh:4.17, total:1638400, kb:200.00},
+  {name:"sym_group128_6bit", bits:6, mse:1.292651e-04, x:1.91, oh:2.08, total:1605632, kb:196.00},
+  {name:"sym_tensor_8bit", bits:8, mse:2.109177e-05, x:4.85, oh:0.00, total:2097168, kb:256.00},
+  {name:"sym_channel_8bit", bits:8, mse:1.022835e-05, x:2.35, oh:0.39, total:2105344, kb:257.00},
+  {name:"sym_group32_8bit", bits:8, mse:5.775476e-06, x:1.33, oh:6.25, total:2228224, kb:272.00},
+  {name:"sym_group64_8bit", bits:8, mse:6.809107e-06, x:1.57, oh:3.12, total:2162688, kb:264.00},
+  {name:"sym_group128_8bit", bits:8, mse:7.259965e-06, x:1.67, oh:1.56, total:2129920, kb:260.00},
+  {name:"asym_tensor_3bit", bits:3, mse:2.851805e-02, x:5.25, oh:0.00, total:786464, kb:96.00},
+  {name:"asym_channel_3bit", bits:3, mse:1.349947e-02, x:2.49, oh:2.08, total:802816, kb:98.00},
+  {name:"asym_group32_3bit", bits:3, mse:5.429445e-03, x:1.00, oh:33.33, total:1048576, kb:128.00},
+  {name:"asym_group64_3bit", bits:3, mse:6.884052e-03, x:1.27, oh:16.67, total:917504, kb:112.00},
+  {name:"asym_group128_3bit", bits:3, mse:8.886034e-03, x:1.64, oh:8.33, total:851968, kb:104.00},
+  {name:"asym_tensor_4bit", bits:4, mse:5.481911e-03, x:4.38, oh:0.00, total:1048608, kb:128.00},
+  {name:"asym_channel_4bit", bits:4, mse:2.491839e-03, x:1.99, oh:1.56, total:1064960, kb:130.00},
+  {name:"asym_group32_4bit", bits:4, mse:1.250711e-03, x:1.00, oh:25.00, total:1310720, kb:160.00},
+  {name:"asym_group64_4bit", bits:4, mse:1.721061e-03, x:1.38, oh:12.50, total:1179648, kb:144.00},
+  {name:"asym_group128_4bit", bits:4, mse:2.004518e-03, x:1.60, oh:6.25, total:1114112, kb:136.00},
+  {name:"asym_tensor_6bit", bits:6, mse:3.292388e-04, x:4.87, oh:0.00, total:1572896, kb:192.00},
+  {name:"asym_channel_6bit", bits:6, mse:1.515799e-04, x:2.24, oh:1.04, total:1589248, kb:194.00},
+  {name:"asym_group32_6bit", bits:6, mse:6.755863e-05, x:1.00, oh:16.67, total:1835008, kb:224.00},
+  {name:"asym_group64_6bit", bits:6, mse:9.331138e-05, x:1.38, oh:8.33, total:1703936, kb:208.00},
+  {name:"asym_group128_6bit", bits:6, mse:1.109101e-04, x:1.64, oh:4.17, total:1638400, kb:200.00},
+  {name:"asym_tensor_8bit", bits:8, mse:1.970352e-05, x:4.53, oh:0.00, total:2097184, kb:256.00},
+  {name:"asym_channel_8bit", bits:8, mse:9.060444e-06, x:2.08, oh:0.78, total:2113536, kb:258.00},
+  {name:"asym_group32_8bit", bits:8, mse:4.348916e-06, x:1.00, oh:12.50, total:2359296, kb:288.00},
+  {name:"asym_group64_8bit", bits:8, mse:4.522607e-06, x:1.04, oh:6.25, total:2228224, kb:272.00},
+  {name:"asym_group128_8bit", bits:8, mse:6.501965e-06, x:1.50, oh:3.12, total:2162688, kb:264.00},
 ];
 
 function filteredData() {
@@ -134,10 +136,10 @@ function updateCompare() {
   if (!a || !b) return;
   document.getElementById("resultA").innerHTML =
     "<b>" + a.name + " (" + a.bits + "bit)</b>: MSE = " + a.mse.toExponential(4) +
-    ", X-times = " + a.x.toFixed(2) + "x, Overhead = " + a.oh.toFixed(2) + "%";
+    ", X-times = " + a.x.toFixed(2) + "x, Overhead = " + a.oh.toFixed(2) + "%, Size = " + a.kb.toFixed(2) + " KB";
   document.getElementById("resultB").innerHTML =
     "<b>" + b.name + " (" + b.bits + "bit)</b>: MSE = " + b.mse.toExponential(4) +
-    ", X-times = " + b.x.toFixed(2) + "x, Overhead = " + b.oh.toFixed(2) + "%";
+    ", X-times = " + b.x.toFixed(2) + "x, Overhead = " + b.oh.toFixed(2) + "%, Size = " + b.kb.toFixed(2) + " KB";
   let ratio, text;
   if (a.bits === b.bits) {
     ratio = b.mse / a.mse;
@@ -157,7 +159,7 @@ function renderTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = "<td>" + d.name + "</td><td>" + d.bits + "</td><td>" +
       d.mse.toExponential(4) + "</td><td>" + d.x.toFixed(2) + "x</td><td>" +
-      d.oh.toFixed(2) + "%</td>";
+      d.oh.toFixed(2) + "%</td><td>" + d.total + "</td><td>" + d.kb.toFixed(2) + "</td>";
     tbody.appendChild(tr);
   });
   updateCompare();
@@ -167,7 +169,7 @@ let sortDir = {};
 function sortTable(col) {
   const fd = filteredData();
   sortDir[col] = !sortDir[col];
-  const key = ["name","bits","mse","x","oh"][col];
+  const key = ["name","bits","mse","x","oh","total","kb"][col];
   fd.sort((a,b) => {
     let va = a[key], vb = b[key];
     if (typeof va === "string") return sortDir[col] ? va.localeCompare(vb) : vb.localeCompare(va);
@@ -179,7 +181,7 @@ function sortTable(col) {
     const tr = document.createElement("tr");
     tr.innerHTML = "<td>" + d.name + "</td><td>" + d.bits + "</td><td>" +
       d.mse.toExponential(4) + "</td><td>" + d.x.toFixed(2) + "x</td><td>" +
-      d.oh.toFixed(2) + "%</td>";
+      d.oh.toFixed(2) + "%</td><td>" + d.total + "</td><td>" + d.kb.toFixed(2) + "</td>";
     tbody.appendChild(tr);
   });
 }

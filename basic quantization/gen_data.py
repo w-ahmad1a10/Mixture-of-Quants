@@ -8,6 +8,8 @@ for b, lst in by_bit.items():
     mn = min(d["mse"] for d in lst)
     for d in lst:
         d["x"] = d["mse"] / mn
+        wbits = (512 * 512) * d["bits"]
+        d["oh"] = (d["total_bits"] - wbits) / wbits * 100
 N = 512 * 512
 lines = ["const data = ["]
 for d in data:
