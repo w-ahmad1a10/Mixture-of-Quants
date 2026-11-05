@@ -9,7 +9,7 @@ torch.manual_seed(7)
 X_train = [torch.randn(SIZE) for _ in range(100)]
 Y0_train = [W0 @ x for x in X_train]
 
-BITS = 4
+BITS = 3
 QMAX = (1 << (BITS - 1)) - 1
 
 
@@ -44,7 +44,9 @@ hist_sgd = []
 for step in range(STEPS):
     opt_sgd.zero_grad()
     Wq = quantize_ste(W_sgd)
-    loss = sum(F.mse_loss(Wq @ x, y0) for x, y0 in zip(X_train, Y0_train)) / len(X_train)
+    xi = X_train[step % len(X_train)]
+    yi = Y0_train[step % len(X_train)]
+    loss = F.mse_loss(Wq @ xi, yi)
     loss.backward()
     opt_sgd.step()
     if step % 10 == 0 or step == STEPS - 1:
@@ -63,7 +65,9 @@ hist_adam = []
 for step in range(STEPS):
     opt_adam.zero_grad()
     Wq = quantize_ste(W_adam)
-    loss = sum(F.mse_loss(Wq @ x, y0) for x, y0 in zip(X_train, Y0_train)) / len(X_train)
+    xi = X_train[step % len(X_train)]
+    yi = Y0_train[step % len(X_train)]
+    loss = F.mse_loss(Wq @ xi, yi)
     loss.backward()
     opt_adam.step()
     if step % 10 == 0 or step == STEPS - 1:
@@ -95,7 +99,7 @@ with open("optimize_sgd_adam_results.json", "w") as f:
 html = []
 html.append("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>SGD vs Adam</title>")
 html.append("<style>body{font-family:Arial;margin:20px;background:#f5f5f5;} .card{background:#fff;padding:16px;margin:12px 0;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;} th{background:#3498db;color:#fff;} tr:nth-child(even){background:#f9f9f9;} h1,h2{color:#333;}</style>")
-html.append("</head><body><h1>SGD vs Adam: 4-bit Quantization Optimization</h1>")
+html.append("</head><body><h1>SGD vs Adam: 3-bit Quantization Optimization (batch size 1)</h1>")
 html.append(f"<div class='card'><h2>Summary</h2>")
 html.append(f"<p>Matrix: {SIZE}x{SIZE}, 4-bit symmetric per tensor, {len(X_train)} train inputs</p>")
 html.append(f"<p>Train MSE before: {mse_before:.6e}</p>")
