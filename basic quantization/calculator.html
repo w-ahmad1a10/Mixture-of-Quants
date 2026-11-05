@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quantization Error Calculator</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+  h1 { color: #333; }
+  .card { background: #fff; padding: 16px; margin: 12px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  label { font-weight: bold; margin-right: 8px; }
+  select { padding: 6px; font-size: 14px; min-width: 220px; }
+  .row { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  .result { font-size: 18px; color: #2c3e50; margin: 8px 0; }
+  .big { font-size: 24px; font-weight: bold; color: #e74c3c; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
+  th { background: #3498db; color: #fff; cursor: pointer; }
+  tr:nth-child(even) { background: #f9f9f9; }
+  .filter { margin: 8px 0; }
+  button { padding: 8px 14px; background: #3498db; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #2980b9; }
+</style>
+</head>
+<body>
+<h1>Quantization Error Calculator</h1>
+<p>Compare two quantization variants. Pick model A and model B. The calculator shows how many times larger the error of B is compared to A.</p>
+
+<div class="card">
+  <div class="row">
+    <label for="bitFilter">Filter by bits:</label>
+    <select id="bitFilter" onchange="renderTable(); updateCompare();">
+      <option value="all">All</option>
+      <option value="3">3-bit</option>
+      <option value="4">4-bit</option>
+      <option value="6">6-bit</option>
+      <option value="8">8-bit</option>
+    </select>
+  </div>
+  <div class="row">
+    <label for="modelA">Model A:</label>
+    <select id="modelA" onchange="updateCompare()"></select>
+    <label for="modelB">Model B:</label>
+    <select id="modelB" onchange="updateCompare()"></select>
+  </div>
+  <div class="result" id="resultA"></div>
+  <div class="result" id="resultB"></div>
+  <div class="result big" id="ratio"></div>
+</div>
+
+<div class="card">
+  <h2>All variants</h2>
+  <table id="table">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">Variant</th>
+        <th onclick="sortTable(1)">Bits</th>
+        <th onclick="sortTable(2)">MSE</th>
+        <th onclick="sortTable(3)">X-times</th>
+        <th onclick="sortTable(4)">Overhead %</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const data = [
+ {name:"asym_group32", bits:3, mse:0.005429445, x:1.00, oh:33.33},
+ {name:"asym_group64", bits:3, mse:0.006884052, x:1.27, oh:16.67},
+ {name:"asym_group128", bits:3, mse:0.008886034, x:1.64, oh:8.33},
+ {name:"sym_group32", bits:3, mse:0.009949792, x:1.83, oh:16.67},
+ {name:"sym_group64", bits:3, mse:0.01346596, x:2.48, oh:8.33},
+ {name:"asym_channel", bits:3, mse:0.01349947, x:2.49, oh:2.08},
+ {name:"sym_group128", bits:3, mse:0.01503087, x:2.77, oh:4.17},
+ {name:"sym_channel", bits:3, mse:0.01851936, x:3.41, oh:1.04},
+ {name:"asym_tensor", bits:3, mse:0.02851805, x:5.25, oh:0.00},
+ {name:"sym_tensor", bits:3, mse:0.03913943, x:7.21, oh:0.00},
+ {name:"asym_group32", bits:4, mse:0.001250711, x:1.00, oh:25.00},
+ {name:"asym_group64", bits:4, mse:0.001721061, x:1.38, oh:12.50},
+ {name:"sym_group32", bits:4, mse:0.001848271, x:1.48, oh:12.50},
+ {name:"asym_group128", bits:4, mse:0.002004518, x:1.60, oh:6.25},
+ {name:"sym_group64", bits:4, mse:0.002343813, x:1.87, oh:6.25},
+ {name:"sym_group128", bits:4, mse:0.002488448, x:1.99, oh:3.13},
+ {name:"asym_channel", bits:4, mse:0.002491839, x:1.99, oh:1.56},
+ {name:"sym_channel", bits:4, mse:0.003447016, x:2.76, oh:0.78},
+ {name:"asym_tensor", bits:4, mse:0.005481911, x:4.38, oh:0.00},
+ {name:"sym_tensor", bits:4, mse:0.006867167, x:5.49, oh:0.00},
+ {name:"asym_group32", bits:6, mse:0.00006755863, x:1.00, oh:16.67},
+ {name:"asym_group64", bits:6, mse:0.00009331138, x:1.38, oh:8.33},
+ {name:"sym_group32", bits:6, mse:0.00009906423, x:1.47, oh:8.33},
+ {name:"asym_group128", bits:6, mse:0.0001109101, x:1.64, oh:4.17},
+ {name:"sym_group64", bits:6, mse:0.0001214576, x:1.80, oh:4.17},
+ {name:"sym_group128", bits:6, mse:0.0001292651, x:1.91, oh:2.08},
+ {name:"asym_channel", bits:6, mse:0.0001515799, x:2.24, oh:1.04},
+ {name:"sym_channel", bits:6, mse:0.0001792970, x:2.65, oh:0.52},
+ {name:"asym_tensor", bits:6, mse:0.0003292388, x:4.87, oh:0.00},
+ {name:"sym_tensor", bits:6, mse:0.0004100839, x:6.07, oh:0.00},
+ {name:"asym_group32", bits:8, mse:0.000004348916, x:1.00, oh:12.50},
+ {name:"asym_group64", bits:8, mse:0.000004522607, x:1.04, oh:6.25},
+ {name:"sym_group32", bits:8, mse:0.000005775476, x:1.33, oh:6.25},
+ {name:"asym_group128", bits:8, mse:0.000006501965, x:1.50, oh:3.13},
+ {name:"sym_group64", bits:8, mse:0.000006809107, x:1.57, oh:3.13},
+ {name:"sym_group128", bits:8, mse:0.000007259965, x:1.67, oh:1.56},
+ {name:"asym_channel", bits:8, mse:0.000009060444, x:2.08, oh:0.78},
+ {name:"sym_channel", bits:8, mse:0.00001022835, x:2.35, oh:0.39},
+ {name:"asym_tensor", bits:8, mse:0.00001970352, x:4.53, oh:0.00},
+ {name:"sym_tensor", bits:8, mse:0.00002109177, x:4.85, oh:0.00}
+];
+
+function filteredData() {
+  const f = document.getElementById("bitFilter").value;
+  if (f === "all") return data;
+  return data.filter(d => d.bits === parseInt(f));
+}
+
+function populateSelects() {
+  const selA = document.getElementById("modelA");
+  const selB = document.getElementById("modelB");
+  selA.innerHTML = "";
+  selB.innerHTML = "";
+  filteredData().forEach((d, i) => {
+    const optA = new Option(d.name + " (" + d.bits + "bit)", i);
+    const optB = new Option(d.name + " (" + d.bits + "bit)", i);
+    selA.add(optA);
+    selB.add(optB);
+  });
+  if (selB.options.length > 1) selB.selectedIndex = 1;
+}
+
+function updateCompare() {
+  const fd = filteredData();
+  const a = fd[document.getElementById("modelA").selectedIndex];
+  const b = fd[document.getElementById("modelB").selectedIndex];
+  if (!a || !b) return;
+  document.getElementById("resultA").innerHTML =
+    "<b>" + a.name + " (" + a.bits + "bit)</b>: MSE = " + a.mse.toExponential(4) +
+    ", X-times = " + a.x.toFixed(2) + "x, Overhead = " + a.oh.toFixed(2) + "%";
+  document.getElementById("resultB").innerHTML =
+    "<b>" + b.name + " (" + b.bits + "bit)</b>: MSE = " + b.mse.toExponential(4) +
+    ", X-times = " + b.x.toFixed(2) + "x, Overhead = " + b.oh.toFixed(2) + "%";
+  let ratio, text;
+  if (a.bits === b.bits) {
+    ratio = b.mse / a.mse;
+    text = "Model B has " + ratio.toFixed(2) + "x the error of Model A (within same bit group).";
+  } else {
+    ratio = b.mse / a.mse;
+    text = "Model B has " + ratio.toFixed(2) + "x the error of Model A (across different bit groups).";
+  }
+  document.getElementById("ratio").innerText = text;
+}
+
+function renderTable() {
+  populateSelects();
+  const tbody = document.querySelector("#table tbody");
+  tbody.innerHTML = "";
+  filteredData().forEach(d => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + d.name + "</td><td>" + d.bits + "</td><td>" +
+      d.mse.toExponential(4) + "</td><td>" + d.x.toFixed(2) + "x</td><td>" +
+      d.oh.toFixed(2) + "%</td>";
+    tbody.appendChild(tr);
+  });
+  updateCompare();
+}
+
+let sortDir = {};
+function sortTable(col) {
+  const fd = filteredData();
+  sortDir[col] = !sortDir[col];
+  const key = ["name","bits","mse","x","oh"][col];
+  fd.sort((a,b) => {
+    let va = a[key], vb = b[key];
+    if (typeof va === "string") return sortDir[col] ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortDir[col] ? va - vb : vb - va;
+  });
+  const tbody = document.querySelector("#table tbody");
+  tbody.innerHTML = "";
+  fd.forEach(d => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + d.name + "</td><td>" + d.bits + "</td><td>" +
+      d.mse.toExponential(4) + "</td><td>" + d.x.toFixed(2) + "x</td><td>" +
+      d.oh.toFixed(2) + "%</td>";
+    tbody.appendChild(tr);
+  });
+}
+
+renderTable();
+</script>
+</body>
+</html>
