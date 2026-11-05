@@ -67,8 +67,11 @@ for sym, gran, gs, bits in VARIANTS:
     name = variant_name(sym, gran, gs, bits)
     a = agg["no_relu"][name]["mean_mse"]
     b = agg["relu"][name]["mean_mse"]
+    sa = agg["no_relu"][name]["mean_sqnr"]
+    sb = agg["relu"][name]["mean_sqnr"]
     ratio = b / a if a > 0 else float("inf")
-    ratio_rows.append((name, bits, a, b, ratio))
+    sqnr_ratio = sb / sa if sa != 0 else float("inf")
+    ratio_rows.append((name, bits, a, b, ratio, sa, sb, sqnr_ratio))
 
 with open("relu_results.json", "w") as f:
     json.dump({"conditions": CONDITIONS, "seeds": SEEDS, "size": SIZE, "aggregate": agg, "ratios": ratio_rows}, f, indent=2)
@@ -91,9 +94,9 @@ for cond in CONDITIONS:
 
 html.append("<div class='card'><h2>Ratio: MSE with ReLU / MSE without ReLU</h2>")
 html.append("<p>Below 1.0 means ReLU reduced error. Above 1.0 means ReLU increased error.</p>")
-html.append("<table><thead><tr><th>Variant</th><th>MSE no ReLU</th><th>MSE with ReLU</th><th>Ratio</th><th>X-times</th></tr></thead><tbody>")
-for name, bits, a, b, ratio in sorted(ratio_rows, key=lambda r: r[4]):
-    html.append(f"<tr><td>{name}</td><td>{a:.4e}</td><td>{b:.4e}</td><td>{ratio:.4f}</td><td>{ratio:.2f}x</td></tr>")
+html.append("<table><thead><tr><th>Variant</th><th>MSE no ReLU</th><th>MSE with ReLU</th><th>MSE Ratio</th><th>SQNR no ReLU</th><th>SQNR with ReLU</th><th>SQNR Ratio</th></tr></thead><tbody>")
+for name, bits, a, b, ratio, sa, sb, sqnr_ratio in sorted(ratio_rows, key=lambda r: r[4]):
+    html.append(f"<tr><td>{name}</td><td>{a:.4e}</td><td>{b:.4e}</td><td>{ratio:.4f}</td><td>{sa:.2f}</td><td>{sb:.2f}</td><td>{sqnr_ratio:.4f}</td></tr>")
 html.append("</tbody></table></div>")
 
 html.append("</body></html>")
