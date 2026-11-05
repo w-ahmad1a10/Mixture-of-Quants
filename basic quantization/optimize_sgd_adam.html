@@ -1,0 +1,24 @@
+<!DOCTYPE html><html><head><meta charset='UTF-8'><title>SGD vs Adam</title>
+<style>body{font-family:Arial;margin:20px;background:#f5f5f5;} .card{background:#fff;padding:16px;margin:12px 0;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;} th{background:#3498db;color:#fff;} tr:nth-child(even){background:#f9f9f9;} h1,h2{color:#333;}</style>
+</head><body><h1>SGD vs Adam: 4-bit Quantization Optimization</h1>
+<div class='card'><h2>Summary</h2>
+<p>Matrix: 2048x2048, 4-bit symmetric per tensor, 100 train inputs</p>
+<p>Train MSE before: 3.618009e-02</p>
+<p>SGD after: 3.439904e-02 (weight change 3.507599e-10, improvement 1.05x)</p>
+<p>Adam after: 1.854707e-02 (weight change 1.676329e-06, improvement 1.95x)</p>
+</div>
+<div class='card'><h2>Loss per step</h2>
+<table><thead><tr><th>Step</th><th>SGD train MSE</th><th>Adam train MSE</th></tr></thead><tbody>
+<tr><td>0</td><td>3.615880e-02</td><td>3.250785e-02</td></tr>
+<tr><td>10</td><td>3.596922e-02</td><td>2.637623e-02</td></tr>
+<tr><td>20</td><td>3.579228e-02</td><td>1.952670e-02</td></tr>
+<tr><td>30</td><td>3.560222e-02</td><td>1.688335e-02</td></tr>
+<tr><td>40</td><td>3.542700e-02</td><td>1.557092e-02</td></tr>
+<tr><td>50</td><td>3.524555e-02</td><td>1.562704e-02</td></tr>
+<tr><td>60</td><td>3.507874e-02</td><td>1.682537e-02</td></tr>
+<tr><td>70</td><td>3.489961e-02</td><td>1.703882e-02</td></tr>
+<tr><td>80</td><td>3.472325e-02</td><td>1.739192e-02</td></tr>
+<tr><td>90</td><td>3.455434e-02</td><td>1.875334e-02</td></tr>
+<tr><td>99</td><td>3.439904e-02</td><td>1.854707e-02</td></tr>
+</tbody></table></div>
+</body></html>
