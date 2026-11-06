@@ -1,7 +1,7 @@
 {
-  "id": "deepresearch1a10/basic-quantization10",
-  "title": "Basic Quantization 10",
-  "code_file": "kaggle_eval.py",
+  "id": "deepresearch1a10/basic-quantization-4b",
+  "title": "Basic Quantization 4B",
+  "code_file": "kaggle_4b.py",
   "language": "python",
   "kernel_type": "script",
   "is_private": true,
