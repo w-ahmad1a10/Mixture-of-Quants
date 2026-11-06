@@ -253,49 +253,57 @@ def cache_ear(samples, model, device, k):
     return out
 
 
-def eval_text(model, samples, tokenizer, device, cached_kld, cached_ear):
+def eval_text(model, samples, tokenizer, device, cached_kld, cached_ear, batch_size=4):
     model.eval()
     ce_sum = 0.0; ce_tokens = 0
     kld_vals = []; ear_vals = []; mass_vals = []
+    n = len(samples)
     with torch.inference_mode():
-        for idx, s in enumerate(samples):
-            ids = s.unsqueeze(0).to(device)
-            mask = (ids != tokenizer.pad_token_id).long()
+        for start in range(0, n, batch_size):
+            batch = samples[start:start + batch_size]
+            bs = len(batch)
+            max_len = max(s.size(0) for s in batch)
+            ids = torch.full((bs, max_len), tokenizer.pad_token_id, dtype=torch.long, device=device)
+            mask = torch.zeros((bs, max_len), dtype=torch.long, device=device)
+            for bi, s in enumerate(batch):
+                L = s.size(0)
+                ids[bi, :L] = s.to(device)
+                mask[bi, :L] = 1
             logits = model(input_ids=ids, attention_mask=mask).logits
             lp = F.log_softmax(logits, dim=-1)
-            shift_logits = logits[:, :-1, :].contiguous()
-            shift_labels = ids[:, 1:].contiguous()
-            shift_mask = mask[:, 1:].contiguous().bool()
-            flat_l = shift_logits.view(-1, shift_logits.size(-1))
-            flat_y = shift_labels.view(-1)
-            flat_m = shift_mask.view(-1)
-            if flat_m.any():
-                ce = F.cross_entropy(flat_l[flat_m], flat_y[flat_m], reduction="sum")
-                ce_sum += ce.item()
-                ce_tokens += int(flat_m.sum().item())
-            if cached_kld is not None and idx < len(cached_kld):
-                tvals, tinds = cached_kld[idx]
-                tvals = tvals.to(device); tinds = tinds.to(device).long()
-                if tinds.dim() == 2:
-                    for i in range(tinds.size(0)):
-                        s_lp = lp[0, i].gather(0, tinds[i])
-                        t_p = torch.exp(tvals[i]); mask_t = tvals[i] > -16.0
-                        t_p = t_p * mask_t
-                        kld = (t_p * (tvals[i] - s_lp)).sum()
-                        kld = torch.clamp(kld, min=0.0)
-                        kld_vals.append(kld.item())
-            if cached_ear is not None and idx < len(cached_ear):
-                tvals, tinds = cached_ear[idx]
-                tvals = tvals.to(device); tinds = tinds.to(device).long()
-                if tinds.dim() == 2:
-                    for i in range(tinds.size(0)):
-                        s_lp = lp[0, i].gather(0, tinds[i])
-                        t_p = torch.exp(tvals[i]); mask_t = tvals[i] > -16.0
-                        t_p = t_p * mask_t
-                        s_p = torch.exp(s_lp)
-                        ear = torch.sum(torch.minimum(t_p, s_p)).item()
-                        ear_vals.append(ear)
-                        mass_vals.append(t_p.sum().item())
+            for bi in range(bs):
+                sl = logits[bi, :-1, :].contiguous()
+                sy = ids[bi, 1:].contiguous()
+                sm = mask[bi, 1:].contiguous().bool()
+                if sm.any():
+                    ce = F.cross_entropy(sl[sm], sy[sm], reduction="sum")
+                    ce_sum += ce.item()
+                    ce_tokens += int(sm.sum().item())
+            for bi in range(bs):
+                idx = start + bi
+                if cached_kld is not None and idx < len(cached_kld):
+                    tvals, tinds = cached_kld[idx]
+                    tvals = tvals.to(device); tinds = tinds.to(device).long()
+                    if tinds.dim() == 2:
+                        for i in range(tinds.size(0)):
+                            s_lp = lp[bi, i].gather(0, tinds[i])
+                            t_p = torch.exp(tvals[i]); mt = tvals[i] > -16.0
+                            t_p = t_p * mt
+                            kld = (t_p * (tvals[i] - s_lp)).sum()
+                            kld = torch.clamp(kld, min=0.0)
+                            kld_vals.append(kld.item())
+                if cached_ear is not None and idx < len(cached_ear):
+                    tvals, tinds = cached_ear[idx]
+                    tvals = tvals.to(device); tinds = tinds.to(device).long()
+                    if tinds.dim() == 2:
+                        for i in range(tinds.size(0)):
+                            s_lp = lp[bi, i].gather(0, tinds[i])
+                            t_p = torch.exp(tvals[i]); mt = tvals[i] > -16.0
+                            t_p = t_p * mt
+                            s_p = torch.exp(s_lp)
+                            ear = torch.sum(torch.minimum(t_p, s_p)).item()
+                            ear_vals.append(ear)
+                            mass_vals.append(t_p.sum().item())
     ppl = math.exp(ce_sum / ce_tokens) if ce_tokens > 0 else float("inf")
     top10_mass = (sum(mass_vals) / len(mass_vals)) if mass_vals else 0.0
     ear_avg = (sum(ear_vals) / len(ear_vals)) if ear_vals else 0.0
