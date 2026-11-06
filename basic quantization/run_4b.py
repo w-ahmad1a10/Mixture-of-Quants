@@ -406,11 +406,11 @@ def main():
     # No main variants. Only clipping comparison below.
 
     # clipping comparison for 4-bit per_group
-    print("\n=== Clipping comparison (4-bit per_group) ===", flush=True)
+    print("\n=== Clipping comparison (8-bit per_group) ===", flush=True)
     for symmetric in (True, False):
         for clip_pct, clip_label in ((None, "no_clip"), (0.999, "clip99.9"), (0.99, "clip99")):
             print(f"  {clip_label} sym={symmetric}", flush=True)
-            originals = apply_quantization(model, 4, symmetric, "per_group", 32, False, clip_pct)
+            originals = apply_quantization(model, 8, symmetric, "per_group", 32, False, clip_pct)
             text_res = {}
             for dname, samples in text_samples.items():
                 text_res[dname] = eval_text(model, samples, tokenizer, device, text_cached_kld[dname], text_cached_ear[dname])
@@ -418,7 +418,7 @@ def main():
             gc.collect()
             if device.type == "cuda":
                 torch.cuda.empty_cache()
-            results["clipping"].append({"clip": clip_label, "symmetric": symmetric, "bits": 4,
+            results["clipping"].append({"clip": clip_label, "symmetric": symmetric, "bits": 8,
                                        "group_size": 32, "text": text_res})
             with open(args.output, "w") as f:
                 json.dump(results, f, indent=2)
