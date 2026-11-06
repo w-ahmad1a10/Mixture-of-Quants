@@ -27,7 +27,7 @@ def main():
         except Exception as e:
             print("Wiki download failed:", e)
     run([sys.executable, "basic quantization/run_4b.py",
-         "--model", "Qwen/Qwen3.5-4B",
+         "--model", "LiquidAI/LFM3-1.7B",
          "--dtype", "float16",
          "--text-chunks", "500",
          "--seq-length", "512",

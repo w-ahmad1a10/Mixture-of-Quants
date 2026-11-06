@@ -311,7 +311,7 @@ def eval_text(model, samples, tokenizer, device, cached_kld, cached_ear):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="Qwen/Qwen3.5-4B")
+    parser.add_argument("--model", default="LiquidAI/LFM3-1.7B")
     parser.add_argument("--dtype", default="float16")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--text-chunks", type=int, default=500)
