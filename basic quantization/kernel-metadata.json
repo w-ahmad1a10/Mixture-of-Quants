@@ -1,6 +1,6 @@
 {
-  "id": "deepresearch1a10/lfm3-1.7b-quant",
-  "title": "LFM3 1.7B Quant",
+  "id": "deepresearch1a10/clipping-8bit",
+  "title": "Clipping 8bit",
   "code_file": "kaggle_4b.py",
   "language": "python",
   "kernel_type": "script",
