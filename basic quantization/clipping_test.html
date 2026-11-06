@@ -1,0 +1,20 @@
+<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Clipping Test</title>
+<style>body{font-family:Arial;margin:20px;background:#f5f5f5;} .card{background:#fff;padding:16px;margin:12px 0;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;} th{background:#3498db;color:#fff;} tr:nth-child(even){background:#f9f9f9;} h1,h2{color:#333;}</style>
+</head><body><h1>Outlier Clipping Test</h1>
+<div class='card'><h2>Setup</h2>
+<p>Matrix: 2048 by 2048, standard normal times 0.02, seed 42.</p>
+<p>Quantization: 4-bit symmetric per tensor.</p>
+<p>Inputs: 100 vectors of size 2048, seed 7.</p>
+</div>
+<div class='card'><h2>Results</h2>
+<table><thead><tr><th>Variant</th><th>MSE</th><th>SQNR dB</th><th>Scale</th><th>Clipped weights</th><th>% clipped</th></tr></thead><tbody>
+<tr><td>no clip</td><td>3.618009e-02</td><td>13.55</td><td>0.014586</td><td>0</td><td>0.000%</td></tr>
+<tr><td>clip 99.0%ile</td><td>1.064461e-02</td><td>18.86</td><td>0.007362</td><td>41943</td><td>1.000%</td></tr>
+<tr><td>clip 99.9%ile</td><td>1.517291e-02</td><td>17.32</td><td>0.009395</td><td>4195</td><td>0.100%</td></tr>
+</tbody></table></div>
+<div class='card'><h2>Comparison with training</h2>
+<p>Training baseline MSE: 0.03618.</p>
+<p>Training Adam MSE: 0.00830, improvement 4.36x.</p>
+<p>Training SGD MSE: 0.02216, improvement 1.63x.</p>
+</div>
+</body></html>
