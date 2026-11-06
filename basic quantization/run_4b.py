@@ -144,7 +144,9 @@ def apply_quantization(model, bits, symmetric, granularity, group_size, layer_mo
                 continue
             w = module.weight.data
             if clip_pct is not None:
-                thresh = torch.quantile(w.abs().reshape(-1).float(), clip_pct).item()
+                import numpy as np
+                flat = w.abs().reshape(-1).float().cpu().numpy()
+                thresh = float(np.quantile(flat, clip_pct))
                 w = w.clamp(-thresh, thresh)
             originals.append((module, module.weight.data.clone()))
             q = quantize_tensor(w, bits, symmetric, granularity, group_size)
