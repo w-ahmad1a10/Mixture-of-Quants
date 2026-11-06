@@ -1,7 +1,7 @@
 {
-  "id": "deepresearch1a10/clipping-8bit",
-  "title": "Clipping 8bit",
-  "code_file": "kaggle_4b.py",
+  "id": "deepresearch1a10/combined-experiment",
+  "title": "Combined Quantization Experiment",
+  "code_file": "kaggle_combined.py",
   "language": "python",
   "kernel_type": "script",
   "is_private": true,
