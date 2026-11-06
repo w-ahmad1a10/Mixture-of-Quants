@@ -131,7 +131,9 @@ def apply_quantization(model, bits, symmetric, granularity, group_size, layer_mo
             for name, module in items:
                 w = module.weight.data
                 if clip_pct is not None:
-                    thresh = torch.quantile(w.abs().reshape(-1).float(), clip_pct).item()
+                    import numpy as np
+                    flat = w.abs().reshape(-1).float().cpu().numpy()
+                    thresh = float(np.quantile(flat, clip_pct))
                     w = w.clamp(-thresh, thresh)
                 originals.append((module, module.weight.data.clone()))
                 q = quantize_with_params(w.float(), bits, symmetric, scale, zp)
@@ -319,7 +321,7 @@ def eval_text(model, samples, tokenizer, device, cached_kld, cached_ear, batch_s
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="LiquidAI/LFM3-1.7B")
+    parser.add_argument("--model", default="LiquidAI/LFM2.5-230M-Base")
     parser.add_argument("--dtype", default="float16")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--text-chunks", type=int, default=500)
@@ -401,32 +403,7 @@ def main():
         base_text[name] = eval_text(model, samples, tokenizer, device, text_cached_kld[name], text_cached_ear[name])
     results = {"model": args.model, "baseline": {"text": base_text}, "variants": [], "clipping": []}
 
-    # variants
-    variants = []
-    for symmetric in (True, False):
-        for granularity in ("per_tensor", "per_channel", "per_group"):
-            for bits in (4, 8):
-                gs = 32 if granularity == "per_group" else None
-                variants.append((symmetric, granularity, gs, bits))
-
-    for vi, (symmetric, granularity, gs, bits) in enumerate(variants, 1):
-        name = f"{'sym' if symmetric else 'asym'}_{granularity.replace('per_', '')}{'_group' + str(gs) if granularity == 'per_group' else ''}_{bits}bit"
-        print(f"\n=== [{vi}/{len(variants)}] {name} ===", flush=True)
-        layer_mode = (granularity == "per_layer")
-        originals = apply_quantization(model, bits, symmetric, granularity, gs, layer_mode, None)
-        text_res = {}
-        for dname, samples in text_samples.items():
-            print(f"  {dname}", flush=True)
-            text_res[dname] = eval_text(model, samples, tokenizer, device, text_cached_kld[dname], text_cached_ear[dname])
-        restore(originals)
-        gc.collect()
-        if device.type == "cuda":
-            torch.cuda.empty_cache()
-        results["variants"].append({"name": name, "symmetric": symmetric, "granularity": granularity,
-                                    "group_size": gs, "bits": bits, "text": text_res})
-        with open(args.output, "w") as f:
-            json.dump(results, f, indent=2)
-        print(f"  done.", flush=True)
+    # No main variants. Only clipping comparison below.
 
     # clipping comparison for 4-bit per_group
     print("\n=== Clipping comparison (4-bit per_group) ===", flush=True)
