@@ -165,14 +165,14 @@ def restore(originals):
         module.weight.data = data
 
 
-def build_text_samples(tokenizer, repo, config, split, seq_length, max_docs, num_chunks, hf_token):
+def build_text_samples(tokenizer, repo, config, split, seq_length, max_docs, num_chunks, hf_token, text_column="text"):
     ds = load_dataset(repo, config, split=split, streaming=True, token=hf_token) if config else load_dataset(repo, split=split, streaming=True, token=hf_token)
     all_ids = []
     count = 0
     for row in ds:
         if count >= max_docs:
             break
-        text = row.get("text", "")
+        text = row.get(text_column, "")
         if text and isinstance(text, str):
             all_ids.extend(tokenizer.encode(text, add_special_tokens=False))
         count += 1
@@ -350,16 +350,15 @@ def main():
     wiki_path = "/kaggle/working/wiki.test (2).raw"
     download_wiki(wiki_path, hf_token)
     text_sets = {}
-    text_sets["fineweb-edu"] = ("HuggingFaceFW/fineweb-edu", None, "train")
-    text_sets["finemath-4plus"] = ("HuggingFaceTB/finemath", "finemath-4plus", "train")
-    text_sets["the-stack-python"] = ("bigcode/the-stack", None, "train")
+    text_sets["fineweb-edu"] = ("HuggingFaceFW/fineweb-edu", None, "train", "text")
+    text_sets["finemath-4plus"] = ("HuggingFaceTB/finemath", "finemath-4plus", "train", "text")
+    text_sets["the-stack-python"] = ("bigcode/the-stack", None, "train", "content")
     if os.path.exists(wiki_path):
-        text_sets["wiki"] = ("__wiki__", None, None)
+        text_sets["wiki"] = ("__wiki__", None, None, "text")
 
     text_samples = {}
-    for name, (repo, cfg, split) in text_sets.items():
+    for name, (repo, cfg, split, tcol) in text_sets.items():
         if repo == "__wiki__":
-            # load from file
             with open(wiki_path) as f:
                 txts = [t for t in f.read().split("\n") if t.strip()]
             all_ids = []
@@ -377,7 +376,7 @@ def main():
                     break
             text_samples[name] = samples
         else:
-            text_samples[name] = build_text_samples(tokenizer, repo, cfg, split, args.seq_length, args.max_docs, args.text_chunks, hf_token)
+            text_samples[name] = build_text_samples(tokenizer, repo, cfg, split, args.seq_length, args.max_docs, args.text_chunks, hf_token, tcol)
 
     # cache original logits per dataset
     print("Caching original logits...", flush=True)

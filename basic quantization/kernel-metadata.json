@@ -1,6 +1,6 @@
 {
-  "id": "deepresearch1a10/basic-quantization-4b-final",
-  "title": "Basic Quantization 4B Final",
+  "id": "deepresearch1a10/lfm3-1.7b-quant",
+  "title": "LFM3 1.7B Quant",
   "code_file": "kaggle_4b.py",
   "language": "python",
   "kernel_type": "script",
