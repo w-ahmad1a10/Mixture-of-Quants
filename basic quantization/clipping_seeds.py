@@ -22,7 +22,7 @@ def eval_variant(Wq, X, Y):
     return sum(mses)/len(mses), sum(sqnrs)/len(sqnrs)
 
 seeds = [0, 1, 2]
-agg = {"no clip": [], "clip99": [], "clip999": []}
+agg = {"no clip": [], "clip90": []}
 for seed in seeds:
     torch.manual_seed(seed)
     W = torch.randn(SIZE, SIZE) * 0.02
@@ -33,22 +33,15 @@ for seed in seeds:
     Wq, sc = quantize(W)
     mse, sqnr = eval_variant(Wq, X, Y)
     agg["no clip"].append((mse, sqnr, sc, 0))
-    # clip 99
-    thresh = torch.quantile(W.abs().reshape(-1), 0.99).item()
+    # clip 90
+    thresh = torch.quantile(W.abs().reshape(-1), 0.90).item()
     Wc = W.clamp(-thresh, thresh)
     nclip = int((W.abs() > thresh).sum().item())
     Wq, sc = quantize(Wc)
     mse, sqnr = eval_variant(Wq, X, Y)
-    agg["clip99"].append((mse, sqnr, sc, nclip))
-    # clip 99.9
-    thresh = torch.quantile(W.abs().reshape(-1), 0.999).item()
-    Wc = W.clamp(-thresh, thresh)
-    nclip = int((W.abs() > thresh).sum().item())
-    Wq, sc = quantize(Wc)
-    mse, sqnr = eval_variant(Wq, X, Y)
-    agg["clip999"].append((mse, sqnr, sc, nclip))
+    agg["clip90"].append((mse, sqnr, sc, nclip))
 
-for name in ["no clip", "clip99", "clip999"]:
+for name in ["no clip", "clip90"]:
     ms = [r[0] for r in agg[name]]
     ss = [r[1] for r in agg[name]]
     print(f"{name}: mean MSE {sum(ms)/len(ms):.6e}, mean SQNR {sum(ss)/len(ss):.2f} dB, clipped weights {[r[3] for r in agg[name]]}")
