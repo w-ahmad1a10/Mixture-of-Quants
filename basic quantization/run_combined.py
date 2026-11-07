@@ -363,7 +363,7 @@ def main():
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
     print("Loading model...", flush=True)
-    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=dtype, token=hf_token, trust_remote_code=True, low_cpu_mem_usage=True)
+    model = AutoModelForCausalLM.from_pretrained(args.model, dtype=dtype, token=hf_token, trust_remote_code=True, low_cpu_mem_usage=True)
     model.to(device)
     model.eval()
     model.config.use_cache = False
@@ -378,7 +378,7 @@ def main():
         text_sets["wiki"] = ("__wiki__", None, None, "text", None)
 
     text_samples = {}
-    for name, (repo, cfg, split, tcol) in text_sets.items():
+    for name, (repo, cfg, split, tcol, ddir) in text_sets.items():
         if repo == "__wiki__":
             with open(wiki_path) as f:
                 txts = [t for t in f.read().split("\n") if t.strip()]
@@ -397,7 +397,10 @@ def main():
                     break
             text_samples[name] = samples
         else:
-            text_samples[name] = build_text_samples(tokenizer, repo, cfg, split, args.seq_length, args.max_docs, args.text_chunks, hf_token, tcol)
+            text_samples[name] = build_text_samples(tokenizer, repo, cfg, split, args.seq_length, args.max_docs, args.text_chunks, hf_token, tcol, ddir)
+
+    for name, samples in text_samples.items():
+        print(f"  {name}: {len(samples)} chunks", flush=True)
 
     print("Caching original logits...", flush=True)
     text_cached_kld = {}
