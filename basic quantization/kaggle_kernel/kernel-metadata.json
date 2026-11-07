@@ -1,0 +1,14 @@
+{
+  "id": "deepresearch1a10/quant-eval-fake",
+  "title": "Quant Eval Fake",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "dataset_sources": ["deepresearch1a10/hf-token-store"],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}
