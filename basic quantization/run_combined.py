@@ -1,5 +1,5 @@
 """Combined quantize + eval for LFM2.5-230M on Kaggle GPU. 12 variants + clipping. No MMLU."""
-import argparse, gc, json, math, os, random, sys, time
+import argparse, gc, json, math, os, random, re, sys, time
 import torch, torch.nn as nn, torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
@@ -24,7 +24,7 @@ for symmetric in (True, False):
 def is_quantizable(name, module):
     if not hasattr(module, "weight"):
         return False
-    if module.weight.dim() < 2:
+    if module.weight.dim() != 2:
         return False
     nl = name.lower()
     if any(p in nl for p in SKIP_PATTERNS):
@@ -125,7 +125,8 @@ def apply_quantization(model, bits, symmetric, granularity, group_size, layer_mo
         for name, module in model.named_modules():
             if not is_quantizable(name, module):
                 continue
-            layer_key = name.split(".")[2] if "layers." in name else "other"
+            m = re.search(r"layers\.(\d+)", name)
+            layer_key = m.group(1) if m else "other"
             layers.setdefault(layer_key, []).append((name, module))
         for lk, items in layers.items():
             weights = [m.weight.data for _, m in items]
@@ -133,9 +134,9 @@ def apply_quantization(model, bits, symmetric, granularity, group_size, layer_mo
             for name, module in items:
                 w = module.weight.data
                 if clip_pct is not None:
-                    import numpy as np
-                    flat = w.abs().reshape(-1).float().cpu().numpy()
-                    thresh = float(np.quantile(flat, clip_pct))
+                    flat = w.abs().reshape(-1)
+                    k = max(1, int(flat.numel() * clip_pct))
+                    thresh = torch.kthvalue(flat, k).values.item()
                     w = w.clamp(-thresh, thresh)
                 originals.append((module, module.weight.data.clone()))
                 q = quantize_with_params(w.float(), bits, symmetric, scale, zp)
@@ -167,12 +168,21 @@ def quantize_with_params(w, bits, symmetric, scale, zp):
 
 
 def restore(originals):
-    for module, data in originals:
-        module.weight.data = data
+    seen = set()
+    for module, data in reversed(originals):
+        if id(module.weight) in seen:
+            continue
+        seen.add(id(module.weight))
+        module.weight.data.copy_(data.to(module.weight.device, dtype=module.weight.dtype))
 
 
-def build_text_samples(tokenizer, repo, config, split, seq_length, max_docs, num_chunks, hf_token, text_column="text"):
-    ds = load_dataset(repo, config, split=split, streaming=True, token=hf_token) if config else load_dataset(repo, split=split, streaming=True, token=hf_token)
+def build_text_samples(tokenizer, repo, config, split, seq_length, max_docs, num_chunks, hf_token, text_column="text", data_dir=None):
+    if data_dir:
+        ds = load_dataset(repo, split=split, streaming=True, token=hf_token, data_dir=data_dir)
+    elif config:
+        ds = load_dataset(repo, config, split=split, streaming=True, token=hf_token)
+    else:
+        ds = load_dataset(repo, split=split, streaming=True, token=hf_token)
     all_ids = []
     count = 0
     for row in ds:
@@ -209,22 +219,22 @@ def download_wiki(path, hf_token):
         print("Wiki download failed:", e)
 
 
-def cache_kld(samples, model, device, k, pad_token_id):
+def cache_kld(samples, model, device, k, pad_token_id, seq_length):
     cached = []
     with torch.inference_mode():
         for s in samples[:5]:
             ids = s.unsqueeze(0).to(device)
             mask = (ids != pad_token_id).long()
-            logits = model(input_ids=ids, attention_mask=mask).logits
+            logits = model(input_ids=ids, attention_mask=mask).logits.float()
             lp = F.log_softmax(logits, dim=-1)
+            top_vals, top_inds = torch.topk(lp[0], k, dim=-1)
             for i in range(lp.size(1)):
-                vals, inds = torch.topk(lp[0, i], k=min(k, lp.size(-1)))
-                cached.append((vals.detach().cpu(), inds.detach().to(torch.int32).cpu()))
+                cached.append((top_vals[i].detach().cpu(), top_inds[i].detach().to(torch.int32).cpu()))
     out = []
     for i in range(5):
         chunk_vals = []; chunk_inds = []
-        for j in range(512):
-            pos = i * 512 + j
+        for j in range(seq_length):
+            pos = i * seq_length + j
             if pos < len(cached):
                 chunk_vals.append(cached[pos][0])
                 chunk_inds.append(cached[pos][1])
@@ -233,22 +243,22 @@ def cache_kld(samples, model, device, k, pad_token_id):
     return out
 
 
-def cache_ear(samples, model, device, k, pad_token_id):
+def cache_ear(samples, model, device, k, pad_token_id, seq_length):
     cached = []
     with torch.inference_mode():
         for s in samples:
             ids = s.unsqueeze(0).to(device)
             mask = (ids != pad_token_id).long()
-            logits = model(input_ids=ids, attention_mask=mask).logits
+            logits = model(input_ids=ids, attention_mask=mask).logits.float()
             lp = F.log_softmax(logits, dim=-1)
+            top_vals, top_inds = torch.topk(lp[0], k, dim=-1)
             for i in range(lp.size(1)):
-                vals, inds = torch.topk(lp[0, i], k=min(k, lp.size(-1)))
-                cached.append((vals.detach().cpu(), inds.detach().to(torch.int32).cpu()))
+                cached.append((top_vals[i].detach().cpu(), top_inds[i].detach().to(torch.int32).cpu()))
     out = []
     for i in range(len(samples)):
         chunk_vals = []; chunk_inds = []
-        for j in range(512):
-            pos = i * 512 + j
+        for j in range(seq_length):
+            pos = i * seq_length + j
             if pos < len(cached):
                 chunk_vals.append(cached[pos][0])
                 chunk_inds.append(cached[pos][1])
@@ -273,7 +283,7 @@ def eval_text(model, samples, tokenizer, device, cached_kld, cached_ear, batch_s
                 L = s.size(0)
                 ids[bi, :L] = s.to(device)
             mask = (ids != pad_id).long()
-            logits = model(input_ids=ids, attention_mask=mask).logits
+            logits = model(input_ids=ids, attention_mask=mask).logits.float()
             lp = F.log_softmax(logits, dim=-1)
             for bi in range(bs):
                 sl = logits[bi, :-1, :].contiguous()
@@ -361,11 +371,11 @@ def main():
     wiki_path = "/kaggle/working/wiki.test (2).raw"
     download_wiki(wiki_path, hf_token)
     text_sets = {}
-    text_sets["fineweb-edu"] = ("HuggingFaceFW/fineweb-edu", None, "train", "text")
-    text_sets["finemath-4plus"] = ("HuggingFaceTB/finemath", "finemath-4plus", "train", "text")
-    text_sets["the-stack-python"] = ("bigcode/the-stack", None, "train", "content")
+    text_sets["fineweb-edu"] = ("HuggingFaceFW/fineweb-edu", None, "train", "text", None)
+    text_sets["finemath-4plus"] = ("HuggingFaceTB/finemath", "finemath-4plus", "train", "text", None)
+    text_sets["the-stack-python"] = ("bigcode/the-stack", None, "train", "content", "data/python")
     if os.path.exists(wiki_path):
-        text_sets["wiki"] = ("__wiki__", None, None, "text")
+        text_sets["wiki"] = ("__wiki__", None, None, "text", None)
 
     text_samples = {}
     for name, (repo, cfg, split, tcol) in text_sets.items():
@@ -393,8 +403,8 @@ def main():
     text_cached_kld = {}
     text_cached_ear = {}
     for name, samples in text_samples.items():
-        text_cached_kld[name] = cache_kld(samples, model, device, TEACHER_TOPK_KLD, tokenizer.pad_token_id)
-        text_cached_ear[name] = cache_ear(samples, model, device, TEACHER_TOPK_EAR, tokenizer.pad_token_id)
+        text_cached_kld[name] = cache_kld(samples, model, device, TEACHER_TOPK_KLD, tokenizer.pad_token_id, args.seq_length)
+        text_cached_ear[name] = cache_ear(samples, model, device, TEACHER_TOPK_EAR, tokenizer.pad_token_id, args.seq_length)
 
     print("Baseline eval...", flush=True)
     base_text = {}
