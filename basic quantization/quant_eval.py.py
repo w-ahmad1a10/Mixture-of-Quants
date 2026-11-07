@@ -1,4 +1,3 @@
-%%writefile g.py
 #!/usr/bin/env python3
 """
 quant_eval.py — Fake-quantization damage evaluation.
@@ -6,12 +5,17 @@ quant_eval.py — Fake-quantization damage evaluation.
 Subcommands
 -----------
   inventory   Produce tensors.csv from model.named_parameters().
-  evaluate    Apply 24 fake-quant configs to an allowlist, measure KLD/EAR
-              against the original model, upload results to HF.
+  evaluate    Apply 24 fake-quant configs, measure KLD/EAR against the
+              original model, upload results to HF.
   selftest    Compare our symmetric 8-bit QDQ against torch.quantize_per_tensor.
 
-Quantization is manual NumPy QDQ (scale/zp -> clamp -> round -> dequantize),
-written back to the parameter in-place as bf16. No packing, no int kernels.
+Allowlist contract
+------------------
+The same tensors.csv produced by `inventory` is passed to `evaluate`.
+The user edits ONLY the `quantizable_default` column (True/False).
+`evaluate` reads names where `quantizable_default == True`, and hard-aborts
+on missing column, invalid values, duplicate names, non-existent names,
+non-2D tensors, or tied aliases. No rows are deleted. No second file.
 """
 
 import argparse
@@ -77,9 +81,7 @@ DATASET_SPECS = {
 def qdq_np(W, bits, symmetric, granularity, clip_pct):
     """
     Fake-quantize W (np.float32, 2-D) and dequantize.
-
-    Returns np.float32 array of same shape, or None if the tensor cannot be
-    per-group quantized (in_features not divisible by GROUP_SIZE).
+    Returns np.float32 array of same shape, or None if per-group is impossible.
     """
     out_f, in_f = W.shape
 
@@ -89,7 +91,7 @@ def qdq_np(W, bits, symmetric, granularity, clip_pct):
         Wr = W.reshape(out_f, in_f // GROUP_SIZE, GROUP_SIZE)
         axis = 2
     elif granularity == "per_channel":
-        Wr = W  # [out, in]
+        Wr = W
         axis = 1
     elif granularity == "per_tensor":
         Wr = W.reshape(-1)
@@ -125,7 +127,6 @@ def qdq_np(W, bits, symmetric, granularity, clip_pct):
         zp = np.clip(np.round(qmin - w_min / scale), qmin, qmax).astype(np.float32)
         q = np.clip(np.round(Wc / scale) + zp, qmin, qmax)
         Wh = (q - zp) * scale
-        # degenerate group (w_max == w_min): reconstruct exactly
         degenerate = (rng == 0)
         if degenerate.any():
             Wh = np.where(degenerate, w_min, Wh)
@@ -174,7 +175,7 @@ def run_selftest(out_dir):
     rel = abs(mse_ours - mse_torch) / max(mse_torch, 1e-12)
     pass_unclipped = rel < 1e-4
 
-    # ---- clipped symmetric 8-bit (torch reference with torch.quantile) ----
+    # ---- clipped symmetric 8-bit (torch reference path) ----
     bound_t = torch.quantile(W.abs().flatten(), CLIP_PCT / 100.0)
     Wc_t = torch.clamp(W, -bound_t, bound_t)
     scale_c = float(bound_t) / 127.0
@@ -219,13 +220,12 @@ def run_selftest(out_dir):
 # ==========================================================================
 def cmd_inventory(args):
     print(f"[inventory] loading tokenizer/model: {args.model}")
-    tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)  # noqa: F841
     model = AutoModelForCausalLM.from_pretrained(
         args.model, torch_dtype=torch.bfloat16, trust_remote_code=True,
         low_cpu_mem_usage=True,
     )
 
-    # map id(param) -> all names (detects tied aliases)
     id_to_names = {}
     for name, p in model.named_parameters():
         id_to_names.setdefault(id(p), []).append(name)
@@ -261,27 +261,63 @@ def cmd_inventory(args):
     print(f"[inventory] {len(rows)} unique parameters -> {args.out}")
     print(f"[inventory] tied: {sum(1 for r in rows if r['tied'])} "
           f"(aliases shown in 'aliases' column)")
+    print(f"[inventory] quantizable_default=True count: "
+          f"{sum(1 for r in rows if r['quantizable_default'])}")
     del model
     gc.collect()
     torch.cuda.empty_cache()
 
 
 # ==========================================================================
-# 4. Allowlist validation
+# 4. Allowlist — read `quantizable_default == True` from the inventory CSV
 # ==========================================================================
-def load_and_validate_allowlist(path, model):
+def load_allowlist(path, model):
+    """
+    Read `tensors.csv`, select names with quantizable_default == True,
+    and validate. Hard-aborts on any inconsistency.
+    """
+    if not os.path.isfile(path):
+        print(f"[allowlist] ERROR: file not found: {path}", file=sys.stderr)
+        sys.exit(1)
+
     names = []
     with open(path) as f:
         r = csv.DictReader(f)
-        for row in r:
-            names.append(row["name"].strip())
+        cols = r.fieldnames or []
+        if "name" not in cols:
+            print("[allowlist] ERROR: missing 'name' column", file=sys.stderr)
+            sys.exit(1)
+        if "quantizable_default" not in cols:
+            print("[allowlist] ERROR: missing 'quantizable_default' column. "
+                  "Pass the tensors.csv produced by `inventory`.",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        for i, row in enumerate(r, start=2):  # header is line 1
+            raw = row["quantizable_default"]
+            val = str(raw).strip().lower() if raw is not None else ""
+            if val == "true":
+                names.append(row["name"].strip())
+            elif val == "false":
+                continue
+            else:
+                print(f"[allowlist] ERROR: line {i} "
+                      f"(name={row.get('name')!r}) has "
+                      f"quantizable_default={raw!r}; must be 'True' or 'False'",
+                      file=sys.stderr)
+                sys.exit(1)
+
+    if not names:
+        print("[allowlist] ERROR: no rows with quantizable_default=True",
+              file=sys.stderr)
+        sys.exit(1)
 
     param_map = dict(model.named_parameters())
     errs = []
 
     if len(set(names)) != len(names):
-        dup = [n for n in set(names) if names.count(n) > 1]
-        errs.append(f"duplicate names in allowlist: {dup}")
+        dup = sorted({n for n in names if names.count(n) > 1})
+        errs.append(f"duplicate names: {dup}")
 
     missing = [n for n in names if n not in param_map]
     if missing:
@@ -291,29 +327,24 @@ def load_and_validate_allowlist(path, model):
     if non2d:
         errs.append(f"non-2D tensors (refusing to quantize): {non2d}")
 
-    if not names:
-        errs.append("allowlist is empty")
+    first_name = {}
+    for n, p in model.named_parameters():
+        first_name.setdefault(id(p), n)
+    aliases_in_allowlist = [
+        n for n in names
+        if n in param_map and first_name[id(param_map[n])] != n
+    ]
+    if aliases_in_allowlist:
+        errs.append(f"tied aliases in allowlist (would be silently skipped): "
+                    f"{aliases_in_allowlist}")
 
     if errs:
         for e in errs:
             print(f"[allowlist] ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # tied-alias detection: any name in allowlist that is NOT the first-yielded
-    # name for its parameter id is an alias and will never be visited.
-    first_name = {}
-    for n, p in model.named_parameters():
-        first_name.setdefault(id(p), n)
-    aliases_in_allowlist = [
-        n for n in names
-        if first_name[id(param_map[n])] != n
-    ]
-    if aliases_in_allowlist:
-        print(f"[allowlist] ERROR: these are tied aliases and would be silently "
-              f"skipped: {aliases_in_allowlist}", file=sys.stderr)
-        sys.exit(1)
-
-    print(f"[allowlist] {len(names)} tensors validated")
+    print(f"[allowlist] {len(names)} tensors selected "
+          f"(quantizable_default=True)")
     return names
 
 
@@ -356,15 +387,14 @@ def stream_sequences(dataset_name, tokenizer, seq_len, n_seqs):
 # ==========================================================================
 @torch.no_grad()
 def build_cache(model, sequences, device, fwd_chunk):
-    """Returns (ids [N,1000] int32 CPU, probs [N,1000] float32 CPU)."""
     all_ids, all_probs = [], []
     n = len(sequences)
     t0 = time.time()
     for i in range(0, n, fwd_chunk):
         chunk = sequences[i:i + fwd_chunk]
         input_ids = torch.tensor(chunk, dtype=torch.long, device=device)
-        logits = model(input_ids).logits.float()          # [B, L, V] fp32
-        probs = torch.softmax(logits, dim=-1)              # fp32
+        logits = model(input_ids).logits.float()
+        probs = torch.softmax(logits, dim=-1)
         top_p, top_i = torch.topk(probs, k=TOPK_CACHE, dim=-1)
         all_ids.append(top_i.to(torch.int32).cpu())
         all_probs.append(top_p.cpu())
@@ -372,7 +402,7 @@ def build_cache(model, sequences, device, fwd_chunk):
         if device.type == "cuda":
             torch.cuda.empty_cache()
         if (i // fwd_chunk) % 5 == 0:
-            print(f"  [cache] {i + len(chunk)}/{n} seqs  "
+            print(f"  [cache] {i + len(chunk)}/{n} seqs "
                   f"({time.time() - t0:.1f}s)")
     ids = torch.cat(all_ids, dim=0).reshape(-1, TOPK_CACHE)
     probs = torch.cat(all_probs, dim=0).reshape(-1, TOPK_CACHE)
@@ -398,22 +428,22 @@ def evaluate_config(model, sequences, cache_ids, cache_probs,
         chunk = sequences[i:i + fwd_chunk]
         input_ids = torch.tensor(chunk, dtype=torch.long, device=device)
         logits = model(input_ids).logits.float()
-        probs = torch.softmax(logits, dim=-1)              # [B, L, V]
+        probs = torch.softmax(logits, dim=-1)
 
         start = i * L
         end = (i + len(chunk)) * L
-        c_ids = cache_ids[start:end].long().to(device)      # [B*L, 1000]
-        c_probs = cache_probs[start:end].to(device)         # [B*L, 1000]
+        c_ids = cache_ids[start:end].long().to(device)
+        c_probs = cache_probs[start:end].to(device)
 
-        flat = probs.reshape(-1, probs.shape[-1])           # [B*L, V]
-        q_raw = flat.gather(1, c_ids)                       # [B*L, 1000]
+        flat = probs.reshape(-1, probs.shape[-1])
+        q_raw = flat.gather(1, c_ids)
 
         # ---- KLD on top-1000 ----
         p_sum = c_probs.sum(dim=1, keepdim=True)
         p = c_probs / p_sum.clamp_min(EPS)
         q_sum = q_raw.sum(dim=1, keepdim=True)
         q = q_raw / q_sum.clamp_min(EPS)
-        kld = (p * torch.log((p + EPS) / (q + EPS))).sum(dim=1)  # [B*L]
+        kld = (p * torch.log((p + EPS) / (q + EPS))).sum(dim=1)
         p_res = 1.0 - p_sum.squeeze(1)
         q_res = 1.0 - q_sum.squeeze(1)
 
@@ -503,6 +533,8 @@ def upload_results(out_dir, repo_id):
 # 10. Evaluate
 # ==========================================================================
 def cmd_evaluate(args):
+    os.makedirs(args.out_dir, exist_ok=True)
+
     # selftest gate
     st = run_selftest(args.out_dir)
     if not st["pass"]:
@@ -519,42 +551,38 @@ def cmd_evaluate(args):
         trust_remote_code=True, low_cpu_mem_usage=True,
     ).to(device).eval()
 
-    # ---- tensor inventory report + allowlist validation ----
+    # ---- global tensor count (id-dedup guard) ----
     total_tensors = 0
     seen_ids = set()
-    tied_aliases = []
+    id_names = {}
     for name, p in model.named_parameters():
         assert id(p) not in seen_ids, f"duplicate parameter id yielded: {name}"
         seen_ids.add(id(p))
         total_tensors += 1
-
-    allowlist = load_and_validate_allowlist(args.allowlist, model)
-    allowed_tensors = len(allowlist)
-
-    # tied aliases that exist in the model but are not yielded (informational)
-    id_names = {}
-    for name, p in model.named_parameters():
         id_names.setdefault(id(p), []).append(name)
-    for ids, names in id_names.items():
+
+    tied_aliases = []
+    for _, names in id_names.items():
         if len(names) > 1:
             tied_aliases.extend(names[1:])
 
+    # ---- allowlist from tensors.csv (quantizable_default == True) ----
+    allowlist = load_allowlist(args.allowlist, model)
+    allowed_tensors = len(allowlist)
     print(f"[evaluate] total_tensors={total_tensors}  "
           f"allowed={allowed_tensors}  tied_aliases={len(tied_aliases)}")
 
-    # save originals on CPU bf16 for restore + repeated QDQ
+    # ---- snapshot originals on CPU bf16 for restore ----
     print("[evaluate] snapshotting allowlisted originals to CPU ...")
     orig_cpu = {}
     for name in allowlist:
         p = model.get_parameter(name)
         orig_cpu[name] = p.detach().to("cpu", copy=True)
 
-    # write inventory snapshot + allowlist copy
-    with open(os.path.join(args.out_dir, "allowlist_used.csv"), "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["name"])
-        for n in allowlist:
-            w.writerow([n])
+    # ---- copy the exact allowlist file used (reproducibility) ----
+    with open(args.allowlist, "r") as src, \
+         open(os.path.join(args.out_dir, "allowlist_used.csv"), "w") as dst:
+        dst.write(src.read())
 
     configs = make_configs()
     datasets = [d.strip() for d in args.datasets.split(",") if d.strip()]
@@ -620,7 +648,6 @@ def cmd_evaluate(args):
             torch.cuda.empty_cache()
 
     # ---- write results ----
-    os.makedirs(args.out_dir, exist_ok=True)
     if rows:
         fields = list(rows[0].keys())
         with open(os.path.join(args.out_dir, "results_per_config.csv"),
@@ -675,7 +702,9 @@ def main():
 
     p_eval = sub.add_parser("evaluate")
     p_eval.add_argument("--model", required=True)
-    p_eval.add_argument("--allowlist", required=True)
+    p_eval.add_argument("--allowlist", required=True,
+                        help="tensors.csv produced by `inventory`. "
+                             "Rows with quantizable_default=True are quantized.")
     p_eval.add_argument("--out-dir", default="./results")
     p_eval.add_argument("--hf-repo", default=None,
                         help="dataset repo id, e.g. user/quant-eval-results")
@@ -685,7 +714,8 @@ def main():
     p_eval.add_argument("--fwd-chunk", type=int, default=4)
     p_eval.add_argument("--dtype", default="bfloat16",
                         choices=["bfloat16", "float16", "float32"])
-    p_eval.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    p_eval.add_argument("--device",
+                        default="cuda" if torch.cuda.is_available() else "cpu")
 
     p_st = sub.add_parser("selftest")
     p_st.add_argument("--out-dir", default="./results")
@@ -695,7 +725,6 @@ def main():
     if args.cmd == "inventory":
         cmd_inventory(args)
     elif args.cmd == "evaluate":
-        os.makedirs(args.out_dir, exist_ok=True)
         cmd_evaluate(args)
     elif args.cmd == "selftest":
         res = run_selftest(args.out_dir)
