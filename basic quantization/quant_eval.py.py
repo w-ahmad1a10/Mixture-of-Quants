@@ -44,7 +44,8 @@ CLIP_PCT = 99.9
 DATASET_SPECS = {
     "wikitext": {
         "loader": lambda: load_dataset(
-            "wikitext", "wikitext-103-raw-v1", split="train", streaming=True
+            "Salesforce/wikitext", "wikitext-103-raw-v1",
+            split="train", streaming=True
         ),
         "field": "text",
         "filter": None,
@@ -67,7 +68,8 @@ DATASET_SPECS = {
     },
     "fineweb_math": {
         "loader": lambda: load_dataset(
-            "HuggingFaceFW/fineweb-math", split="train", streaming=True
+            "HuggingFaceTB/finemath", "finemath-3plus",
+            split="train", streaming=True
         ),
         "field": "text",
         "filter": None,
