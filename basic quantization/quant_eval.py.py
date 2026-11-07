@@ -714,7 +714,7 @@ def main():
     p_eval.add_argument("--seq-len", type=int, default=2048)
     p_eval.add_argument("--n-seqs", type=int, default=200)
     p_eval.add_argument("--fwd-chunk", type=int, default=4)
-    p_eval.add_argument("--dtype", default="bfloat16",
+    p_eval.add_argument("--dtype", default="float16",
                         choices=["bfloat16", "float16", "float32"])
     p_eval.add_argument("--device",
                         default="cuda" if torch.cuda.is_available() else "cpu")
