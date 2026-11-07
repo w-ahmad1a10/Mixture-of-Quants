@@ -539,11 +539,11 @@ def phase2_solve(scan_df, slopes_df, allowlist, param_counts, param_weights,
                     allowlist, budget,
                 )
                 if assign is None:
-                    print(f"[solve] {method} budget={budget:2d} {objective:4s} INFEASIBLE")
+                    print(f"[solve] {method} budget={budget:4.1f} {objective:4s} INFEASIBLE")
                     configs[method][budget][objective] = None
                 else:
                     n_quant = sum(1 for v in assign.values() if v != STATE_NONE)
-                    print(f"[solve] {method} budget={budget:2d} {objective:4s} "
+                    print(f"[solve] {method} budget={budget:4.1f} {objective:4s} "
                           f"feasible  ({n_quant} quantized, pred={pred:.4e})")
                     configs[method][budget][objective] = {
                         "assignment": assign,
@@ -606,7 +606,7 @@ def phase3_eval(model, allowlist, orig_cpu, configs, eval_caches,
                         "mean_q_res": m["mean_q_res"],
                         "mean_q20_res": m["mean_q20_res"],
                     })
-                    print(f"  [eval] {method} b={budget:2d} {objective:4s} "
+                    print(f"  [eval] {method} b={budget:4.1f} {objective:4s} "
                           f"ds={ds_name:<13s} bpw={bpw:.2f} "
                           f"KLD={m['mean_kld']:.4e} EAR={m['mean_ear']:.4f}")
 
@@ -747,9 +747,9 @@ def cmd_run(args):
         print(f"[solve] loading {configs_path}")
         with open(configs_path) as f:
             configs = json.load(f)
-        # JSON keys are strings; convert budget keys back to int
+        # JSON keys are strings; convert budget keys back to float
         configs = {
-            m: {int(b): v for b, v in mv.items()}
+            m: {float(b): v for b, v in mv.items()}
             for m, mv in configs.items()
         }
     else:
