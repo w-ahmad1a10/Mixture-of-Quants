@@ -40,12 +40,12 @@ EPS = 1e-12
 
 # ---- Fill here, or via env ----
 HF_TOKEN = ""          # e.g. "hf_xxx"; if empty, falls back to os.environ["HF_TOKEN"]
-HF_REPO = ""           # e.g. "user/quant-bit-allocation"
+HF_REPO = "w-ahmad/model1a"           # e.g. "user/quant-bit-allocation"
 
 BITS = [2, 3, 4, 5, 6, 8, 12]
 STATE_NONE = "none"
 ALL_STATES = BITS + [STATE_NONE]
-BUDGETS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+BUDGETS = [3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 8.0]
 METHODS = ["method1", "method2", "method3"]
 OBJECTIVES = ["kld", "dear"]
 
@@ -493,7 +493,7 @@ def solve_ilp(cost, storage, quantizable, param_counts, allowlist, budget_bpw):
     lb = np.zeros(n_vars)
     ub = np.ones(n_vars)
     for i in range(n):
-        if not quantizable[i]:
+        if not quantizable[allowlist[i]]:
             for j in range(len(BITS)):  # quantized states only
                 ub[i * n_states + j] = 0.0
 
@@ -811,17 +811,17 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--allowlist", required=True)
     ap.add_argument("--out-dir", default="./results_v2")
-    ap.add_argument("--dtype", default="bfloat16",
+    ap.add_argument("--dtype", default="float16",
                     choices=["bfloat16", "float16", "float32"])
     ap.add_argument("--device",
                     default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--seq-len", type=int, default=2048)
+    ap.add_argument("--seq-len", type=int, default=512)
     ap.add_argument("--scan-n-seqs", type=int, default=30,
                     help="sequences per scan dataset for Phase 1")
     ap.add_argument("--n-seqs", type=int, default=100,
                     help="sequences per eval dataset for Phase 3")
-    ap.add_argument("--fwd-chunk", type=int, default=4)
-    ap.add_argument("--scan-datasets", default="wikitext",
+    ap.add_argument("--fwd-chunk", type=int, default=16)
+    ap.add_argument("--scan-datasets", default="stack_python",
                     help="comma-separated datasets used in Phase 1 scan")
     ap.add_argument("--eval-datasets",
                     default="wikitext,stack_python,fineweb_edu,fineweb_math",
