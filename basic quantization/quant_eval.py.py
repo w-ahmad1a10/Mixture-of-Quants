@@ -16,6 +16,12 @@ The user edits ONLY the `quantizable_default` column (True/False).
 `evaluate` reads names where `quantizable_default == True`, and hard-aborts
 on missing column, invalid values, duplicate names, non-existent names,
 non-2D tensors, or tied aliases. No rows are deleted. No second file.
+
+Live display
+------------
+After every config: full metric block.
+After every dataset: full table of 24 configs + best/worst.
+At the end: per-dataset averages + per-config averages across datasets.
 """
 
 import argparse
@@ -532,6 +538,96 @@ def upload_results(out_dir, repo_id):
 
 
 # ==========================================================================
+# 9b. Live result printers  (NEW)
+# ==========================================================================
+def print_config_result(row, elapsed):
+    print("\n" + "-" * 110)
+    print(f"[CFG {row['config_id']:02d}] dataset={row['dataset']} | "
+          f"{row['symmetry']} | bits={row['bits']} | "
+          f"gran={row['granularity']} | clip={row['clipping']}")
+    print(f"  KLD           mean={row['mean_kld']:.6e}   "
+          f"std={row['std_kld']:.6e}")
+    print(f"  EAR           mean={row['mean_ear']:.6f}   "
+          f"std={row['std_ear']:.6f}")
+    print(f"  q_residual    mean={row['mean_q_res']:.6f}")
+    print(f"  p_residual    mean={row['mean_p_res']:.6f}")
+    print(f"  q20_residual  mean={row['mean_q20_res']:.6f}")
+    print(f"  p20_residual  mean={row['mean_p20_res']:.6f}")
+    print(f"  positions     {row['n_positions']}")
+    print(f"  elapsed       {elapsed:.1f}s")
+    print("-" * 110)
+
+
+def print_dataset_summary(ds_name, rows):
+    print("\n" + "=" * 120)
+    print(f"DATASET COMPLETE: {ds_name}   ({len(rows)} configs)")
+    print("=" * 120)
+    print(f"{'cfg':>3} | {'symmetry':<10} | {'b':>1} | {'granularity':<11} | "
+          f"{'clip':<5} | {'KLD':>12} | {'EAR':>8} | "
+          f"{'q_res':>8} | {'p_res':>8} | {'q20_res':>8}")
+    print("-" * 120)
+    for r in rows:
+        print(f"{r['config_id']:>3} | {r['symmetry']:<10} | {r['bits']:>1} | "
+              f"{r['granularity']:<11} | {r['clipping']:<5} | "
+              f"{r['mean_kld']:>12.4e} | {r['mean_ear']:>8.4f} | "
+              f"{r['mean_q_res']:>8.4f} | {r['mean_p_res']:>8.4f} | "
+              f"{r['mean_q20_res']:>8.4f}")
+    print("-" * 120)
+    best = min(rows, key=lambda r: r["mean_kld"])
+    worst = max(rows, key=lambda r: r["mean_kld"])
+    print(f"BEST  (lowest  KLD): cfg {best['config_id']:02d} "
+          f"{best['symmetry']} {best['bits']}b {best['granularity']} "
+          f"clip={best['clipping']} | KLD={best['mean_kld']:.4e} "
+          f"EAR={best['mean_ear']:.4f}")
+    print(f"WORST (highest KLD): cfg {worst['config_id']:02d} "
+          f"{worst['symmetry']} {worst['bits']}b {worst['granularity']} "
+          f"clip={worst['clipping']} | KLD={worst['mean_kld']:.4e} "
+          f"EAR={worst['mean_ear']:.4f}")
+    print("=" * 120 + "\n")
+
+
+def print_overall_summary(all_rows):
+    if not all_rows:
+        return
+    print("\n" + "#" * 120)
+    print(f"OVERALL SUMMARY   ({len(all_rows)} rows total)")
+    print("#" * 120)
+
+    # per-dataset averages (mean across configs)
+    by_ds = {}
+    for r in all_rows:
+        by_ds.setdefault(r["dataset"], []).append(r)
+    print(f"{'dataset':<15} | {'n_cfg':>5} | {'mean_KLD':>12} | "
+          f"{'mean_EAR':>9} | {'mean_q_res':>10}")
+    print("-" * 120)
+    for ds, rs in by_ds.items():
+        mk = sum(x["mean_kld"] for x in rs) / len(rs)
+        me = sum(x["mean_ear"] for x in rs) / len(rs)
+        mqr = sum(x["mean_q_res"] for x in rs) / len(rs)
+        print(f"{ds:<15} | {len(rs):>5} | {mk:>12.4e} | "
+              f"{me:>9.4f} | {mqr:>10.4f}")
+
+    # per-config averages (mean across datasets)
+    by_cfg = {}
+    for r in all_rows:
+        key = (r["config_id"], r["symmetry"], r["bits"],
+               r["granularity"], r["clipping"])
+        by_cfg.setdefault(key, []).append(r)
+    print("\n" + "-" * 120)
+    print(f"{'cfg':>3} | {'symmetry':<10} | {'b':>1} | {'granularity':<11} | "
+          f"{'clip':<5} | {'mean_KLD':>12} | {'mean_EAR':>9}")
+    print("-" * 120)
+    for key in sorted(by_cfg.keys()):
+        cid, sym, bits, gran, clip = key
+        rs = by_cfg[key]
+        mk = sum(x["mean_kld"] for x in rs) / len(rs)
+        me = sum(x["mean_ear"] for x in rs) / len(rs)
+        print(f"{cid:>3} | {sym:<10} | {bits:>1} | {gran:<11} | "
+              f"{clip:<5} | {mk:>12.4e} | {me:>9.4f}")
+    print("#" * 120 + "\n")
+
+
+# ==========================================================================
 # 10. Evaluate
 # ==========================================================================
 def cmd_evaluate(args):
@@ -617,6 +713,8 @@ def cmd_evaluate(args):
         print(f"[evaluate] cache: {cache_ids.shape[0]} positions, "
               f"{cache_mb:.1f} MB")
 
+        dataset_rows = []          # NEW: rows for this dataset only
+
         for cfg in configs:
             t0 = time.time()
             skipped = apply_config(model, allowlist, orig_cpu, cfg)
@@ -626,6 +724,7 @@ def cmd_evaluate(args):
                 model, seqs, cache_ids, cache_probs, device, args.fwd_chunk
             )
             restore_config(model, allowlist, orig_cpu)
+            elapsed = time.time() - t0
 
             row = {
                 "config_id": cfg["config_id"],
@@ -638,16 +737,19 @@ def cmd_evaluate(args):
                 **res,
             }
             rows.append(row)
-            print(f"  cfg {cfg['config_id']:02d} {row['symmetry']:<10} "
-                  f"b={cfg['bits']} {cfg['granularity']:<11} "
-                  f"clip={cfg['clipping']:<5} "
-                  f"kld={res['mean_kld']:.4e} ear={res['mean_ear']:.4f} "
-                  f"({time.time() - t0:.1f}s)")
+            dataset_rows.append(row)                 # NEW
+            print_config_result(row, elapsed)        # NEW: full block per config
+
+        # NEW: dataset-level summary after all configs
+        print_dataset_summary(ds_name, dataset_rows)
 
         del cache_ids, cache_probs, seqs
         gc.collect()
         if device.type == "cuda":
             torch.cuda.empty_cache()
+
+    # NEW: overall summary across datasets
+    print_overall_summary(rows)
 
     # ---- write results ----
     if rows:
@@ -714,7 +816,7 @@ def main():
     p_eval.add_argument("--seq-len", type=int, default=2048)
     p_eval.add_argument("--n-seqs", type=int, default=200)
     p_eval.add_argument("--fwd-chunk", type=int, default=4)
-    p_eval.add_argument("--dtype", default="float16",
+    p_eval.add_argument("--dtype", default="bfloat16",
                         choices=["bfloat16", "float16", "float32"])
     p_eval.add_argument("--device",
                         default="cuda" if torch.cuda.is_available() else "cpu")
