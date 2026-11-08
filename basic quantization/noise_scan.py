@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+####
 noise_scan.py — Report QDQ noise per tensor per bit-width.
 
 Same QDQ scheme as quant_eval_v2.py:
