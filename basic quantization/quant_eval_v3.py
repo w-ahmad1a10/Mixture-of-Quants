@@ -554,14 +554,11 @@ def solve_ilp(cost, storage, quantizable_list, param_counts, budget_bpw):
                integrality=np.ones(n_vars), bounds=Bounds(lb, ub))
     if not res.success:
         return None, None
+
     x = np.asarray(res.x).reshape(n, n_states)
-    predicted = 0.0
-    assignment = {}
-    for i, name in enumerate([f"__i{i}" for i in range(n)]):
-        j = int(np.argmax(x[i]))
-        assignment[name] = j
-        predicted += cost[i, j]
-    return assignment, float(predicted)
+    state_idx = [int(np.argmax(x[i])) for i in range(n)]
+    predicted = float(sum(cost[i, state_idx[i]] for i in range(n)))
+    return state_idx, predicted
 
 
 def phase2_solve(scan_dfs, slopes_dfs, m4_df, m6_df, allowlist, param_weights,
@@ -585,19 +582,15 @@ def phase2_solve(scan_dfs, slopes_dfs, m4_df, m6_df, allowlist, param_weights,
             configs[method][budget] = {}
             for obj in OBJECTIVES:
                 cost, storage = matrices[(method, obj)]
-                assign_idx, pred = solve_ilp(
+                state_idx, pred = solve_ilp(
                     cost, storage, quantizable_list, param_counts_list, budget,
                 )
-                if assign_idx is None:
+                if state_idx is None:
                     print(f"[solve] {method} b={budget:4.1f} {obj:4s} INFEASIBLE")
                     configs[method][budget][obj] = None
                     continue
-                assignment = {allowlist[i]: ALL_STATES[assign_idx[allowlist[i]]]
+                assignment = {allowlist[i]: ALL_STATES[state_idx[i]]
                               for i in range(len(allowlist))}
-                # fix: assign_idx uses placeholders __i{n}; rebuild cleanly
-                assignment = {}
-                for i, name in enumerate(allowlist):
-                    assignment[name] = ALL_STATES[assign_idx[f"__i{i}"]]
                 n_quant = sum(1 for v in assignment.values() if v != STATE_NONE)
                 print(f"[solve] {method} b={budget:4.1f} {obj:4s} feasible "
                       f"({n_quant} quantized, pred={pred:.4e})")
