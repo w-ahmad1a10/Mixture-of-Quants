@@ -4,22 +4,30 @@ quant_eval_v3.py — Bit allocation with 10 methods + uniform baselines.
 
 Methods
 -------
-  M1  : slope(default) × noise × W
-  M2  : measured(default) × noise × W
-  M3  : measured(default) × W
-  M4  : marginal_sequential(default, allowlist order) × W
+  M1  : slope(default) × noise × [W]
+  M2  : measured(default) × noise × [W]
+  M3  : measured(default) × [W]
+  M4  : marginal_sequential(default, allowlist order) × [W]
   M5  : = M3 (alias, reused matrix)
-  M6  : marginal_sequential(default, random order, seed) × W
-  M7  : slope(wikitext) × noise × W
-  M8  : slope(fineweb_edu) × noise × W
-  M9  : slope(fineweb_math) × noise × W
+  M6  : marginal_sequential(default, random order, seed) × [W]
+  M7  : slope(wikitext) × noise × [W]
+  M8  : slope(fineweb_edu) × noise × [W]
+  M9  : slope(fineweb_math) × noise × [W]
   M10 : (M4 + M5 + M6) / 3
 
+  [W] = param_weight multiplier is OFF by default.
+        Use --use-w to enable it.
+
 Objectives: kld, dear (1 − EAR). Both run for every method.
-
-Uniform baselines: pure b-bit models (2,3,4,5,6,8,12) evaluated on all datasets.
-
+Uniform baselines: pure b-bit models evaluated on all datasets.
 Upload: mandatory to HF (HF_REPO / HF_TOKEN constants or env).
+
+Performance
+-----------
+  - Phase 1a: each dataset's cache is held on the GPU for that dataset's scan.
+  - Pre-computation: every (tensor, bits) QDQ is computed once at startup and
+    cached on CPU. All phases (scan, M4, M6, Phase 3) reuse it. This removes
+    the CPU-quantization stall from every forward pass.
 """
 
 import argparse
@@ -47,8 +55,8 @@ EAR_K = 20
 EPS = 1e-12
 
 # ---- HF ----
-HF_TOKEN = ""                      # falls back to env HF_TOKEN
-HF_REPO  = "w-ahmad/model1a_v3"    # dataset repo
+HF_TOKEN = ""                      # fill or set env HF_TOKEN
+HF_REPO  = "w-ahmad/model1a_v3_model2"
 
 # ---- Bit-space ----
 BITS = [2, 3, 4, 5, 6, 8, 12]
@@ -118,6 +126,7 @@ def qdq_per_group_sym(W, bits):
 
 
 def apply_one(model, name, W_bf16_cpu, bits):
+    """Legacy on-demand QDQ; only used when --no-precompute is set."""
     p = model.get_parameter(name)
     W_np = W_bf16_cpu.float().numpy()
     Wh, noise = qdq_per_group_sym(W_np, bits)
@@ -125,6 +134,12 @@ def apply_one(model, name, W_bf16_cpu, bits):
         return None
     p.data.copy_(torch.from_numpy(Wh).to(p.device, dtype=p.dtype))
     return noise
+
+
+def apply_precomputed(model, name, Wh_cpu):
+    """Fast path: pre-computed quantized weight is already on CPU."""
+    p = model.get_parameter(name)
+    p.data.copy_(Wh_cpu.to(p.device, dtype=p.dtype))
 
 
 def restore_one(model, name, W_bf16_cpu):
@@ -138,7 +153,42 @@ def restore_all(model, allowlist, orig_cpu):
 
 
 # ==========================================================================
-# 2. Loading
+# 2. Pre-computation of quantized weights
+# ==========================================================================
+def precompute_quantized(allowlist, orig_cpu, quantizable, device):
+    """
+    Compute and cache every (tensor, bits) QDQ once on CPU.
+    Returns {name: {bits: (Wh_cpu_float32, noise_float)}}.
+    """
+    t0 = time.time()
+    precomputed = {}
+    total_tensors = len(allowlist)
+    for idx, name in enumerate(allowlist):
+        precomputed[name] = {}
+        if not quantizable[name]:
+            continue
+        W_bf16 = orig_cpu[name]
+        W_np = W_bf16.float().numpy()
+        for bits in BITS:
+            Wh, noise = qdq_per_group_sym(W_np, bits)
+            if Wh is None:
+                continue
+            precomputed[name][bits] = (torch.from_numpy(Wh), noise)
+        if (idx + 1) % 10 == 0 or idx == total_tensors - 1:
+            elapsed = time.time() - t0
+            eta = elapsed / (idx + 1) * (total_tensors - idx - 1)
+            total_mb = sum(
+                t.numel() * t.element_size()
+                for d in precomputed.values()
+                for (t, _) in d.values()
+            ) / 1e6
+            print(f"  [precompute] {idx + 1}/{total_tensors} "
+                  f"({elapsed:.0f}s, ETA {eta:.0f}s, {total_mb:.0f} MB)")
+    return precomputed
+
+
+# ==========================================================================
+# 3. Loading
 # ==========================================================================
 def load_allowlist(path, model):
     if not os.path.isfile(path):
@@ -232,7 +282,7 @@ def build_cache(model, sequences, device, fwd_chunk):
 
 
 # ==========================================================================
-# 3. Metrics
+# 4. Metrics
 # ==========================================================================
 @torch.no_grad()
 def evaluate_config(model, sequences, cache_ids, cache_probs, device, fwd_chunk):
@@ -289,29 +339,52 @@ def evaluate_config(model, sequences, cache_ids, cache_probs, device, fwd_chunk)
 
 
 # ==========================================================================
-# 4. Phase 1a — independent scan per dataset
+# 5. Phase 1a — independent scan per dataset (cache on GPU, weights pre-computed)
 # ==========================================================================
-def phase1a_scan(model, allowlist, orig_cpu, quantizable, scan_caches,
-                 device, fwd_chunk):
+def phase1a_scan(model, allowlist, orig_cpu, quantizable, precomputed,
+                 scan_caches, device, fwd_chunk, use_precompute):
     rows = []
     t0 = time.time()
     n = len(allowlist)
-    for ds_name, (seqs, c_ids, c_probs) in scan_caches.items():
+    for ds_name, (seqs, c_ids_cpu, c_probs_cpu) in scan_caches.items():
         print(f"\n[phase1a] scanning dataset: {ds_name}")
+
+        # ---- move this dataset's cache to GPU for the duration of its scan ----
+        c_ids = c_ids_cpu.to(device)
+        c_probs = c_probs_cpu.to(device)
+        if device.type == "cuda":
+            used_mb = torch.cuda.memory_allocated(device) / 1e6
+            cache_bytes = (c_ids.numel() + c_probs.numel()) * 4
+            print(f"  [scan:{ds_name}] cache on GPU "
+                  f"({cache_bytes / 1e6:.0f} MB); "
+                  f"total GPU allocated: {used_mb:.0f} MB")
+
         for idx, name in enumerate(allowlist):
-            W_bf16 = orig_cpu[name]
             for bits in BITS:
                 if not quantizable[name]:
                     rows.append({"dataset": ds_name, "tensor": name, "bits": bits,
                                  "KLD": np.nan, "EAR": np.nan,
                                  "q_res": np.nan, "q20_res": np.nan, "noise": np.nan})
                     continue
-                noise = apply_one(model, name, W_bf16, bits)
-                if noise is None:
-                    rows.append({"dataset": ds_name, "tensor": name, "bits": bits,
-                                 "KLD": np.nan, "EAR": np.nan,
-                                 "q_res": np.nan, "q20_res": np.nan, "noise": np.nan})
-                    continue
+
+                # ---- apply quantized weight (precomputed or on-demand) ----
+                if use_precompute:
+                    entry = precomputed[name].get(bits)
+                    if entry is None:
+                        rows.append({"dataset": ds_name, "tensor": name, "bits": bits,
+                                     "KLD": np.nan, "EAR": np.nan,
+                                     "q_res": np.nan, "q20_res": np.nan, "noise": np.nan})
+                        continue
+                    Wh_cpu, noise = entry
+                    apply_precomputed(model, name, Wh_cpu)
+                else:
+                    noise = apply_one(model, name, orig_cpu[name], bits)
+                    if noise is None:
+                        rows.append({"dataset": ds_name, "tensor": name, "bits": bits,
+                                     "KLD": np.nan, "EAR": np.nan,
+                                     "q_res": np.nan, "q20_res": np.nan, "noise": np.nan})
+                        continue
+
                 m = evaluate_config(model, seqs, c_ids, c_probs, device, fwd_chunk)
                 rows.append({
                     "dataset": ds_name, "tensor": name, "bits": bits,
@@ -319,15 +392,20 @@ def phase1a_scan(model, allowlist, orig_cpu, quantizable, scan_caches,
                     "q_res": m["mean_q_res"], "q20_res": m["mean_q20_res"],
                     "noise": noise,
                 })
-                restore_one(model, name, W_bf16)
+                restore_one(model, name, orig_cpu[name])
             elapsed = time.time() - t0
             print(f"  [scan:{ds_name}] {idx + 1}/{n} {name} ({elapsed:.0f}s)")
+
+        del c_ids, c_probs
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
+
     restore_all(model, allowlist, orig_cpu)
     return pd.DataFrame(rows)
 
 
 # ==========================================================================
-# 5. Phase 1b — slope fit per dataset
+# 6. Phase 1b — slope fit per dataset
 # ==========================================================================
 def fit_slopes(scan_df):
     rows = []
@@ -352,10 +430,11 @@ def fit_slopes(scan_df):
 
 
 # ==========================================================================
-# 6. Phase 1c/1d — sequential (M4 / M6)
+# 7. Phase 1c/1d — sequential (M4 / M6), precomputed weights
 # ==========================================================================
-def phase1_sequential(model, allowlist, orig_cpu, quantizable,
-                      scan_cache, tensor_order, device, fwd_chunk, tag):
+def phase1_sequential(model, allowlist, orig_cpu, quantizable, precomputed,
+                      scan_cache, tensor_order, device, fwd_chunk, tag,
+                      use_precompute):
     rows = []
     clamp_k = clamp_e = 0
     t0 = time.time()
@@ -369,13 +448,24 @@ def phase1_sequential(model, allowlist, orig_cpu, quantizable,
                              "cum_KLD": cum_kld, "cum_EAR": cum_ear,
                              "marginal_KLD": 0.0, "marginal_dEAR": 0.0})
                 continue
-            W_bf16 = orig_cpu[name]
-            noise = apply_one(model, name, W_bf16, bits)
-            if noise is None:
-                rows.append({"tensor": name, "bits": bits, "order": k,
-                             "cum_KLD": cum_kld, "cum_EAR": cum_ear,
-                             "marginal_KLD": 0.0, "marginal_dEAR": 0.0})
-                continue
+
+            if use_precompute:
+                entry = precomputed[name].get(bits)
+                if entry is None:
+                    rows.append({"tensor": name, "bits": bits, "order": k,
+                                 "cum_KLD": cum_kld, "cum_EAR": cum_ear,
+                                 "marginal_KLD": 0.0, "marginal_dEAR": 0.0})
+                    continue
+                Wh_cpu, _ = entry
+                apply_precomputed(model, name, Wh_cpu)
+            else:
+                noise = apply_one(model, name, orig_cpu[name], bits)
+                if noise is None:
+                    rows.append({"tensor": name, "bits": bits, "order": k,
+                                 "cum_KLD": cum_kld, "cum_EAR": cum_ear,
+                                 "marginal_KLD": 0.0, "marginal_dEAR": 0.0})
+                    continue
+
             seqs, c_ids, c_probs = scan_cache
             m = evaluate_config(model, seqs, c_ids, c_probs, device, fwd_chunk)
             new_kld = m["mean_kld"]
@@ -400,10 +490,11 @@ def phase1_sequential(model, allowlist, orig_cpu, quantizable,
 
 
 # ==========================================================================
-# 7. Phase 2 — cost matrices + ILP
+# 8. Phase 2 — cost matrices + ILP
 # ==========================================================================
 def build_cost_matrix(method, objective, scan_dfs, slopes_dfs, m4_df, m6_df,
-                      allowlist, param_weights, quantizable, default_dataset):
+                      allowlist, param_weights, quantizable, default_dataset,
+                      use_w):
     n = len(allowlist)
     n_states = len(ALL_STATES)
     cost = np.full((n, n_states), np.inf, dtype=np.float64)
@@ -429,7 +520,7 @@ def build_cost_matrix(method, objective, scan_dfs, slopes_dfs, m4_df, m6_df,
             cost[i, -1] = 0.0
             if not quantizable[name]:
                 continue
-            w = param_weights[name]
+            w = param_weights[name] if use_w else 1.0
             for j, state in enumerate(ALL_STATES):
                 if state == STATE_NONE:
                     continue
@@ -455,10 +546,6 @@ def build_cost_matrix(method, objective, scan_dfs, slopes_dfs, m4_df, m6_df,
     elif method in ["method7", "method8", "method9"]:
         ds = {"method7": "wikitext", "method8": "fineweb_edu",
               "method9": "fineweb_math"}[method]
-        kld_pivot = scan_dfs[ds].pivot_table(index="tensor", columns="bits",
-                                              values="KLD", aggfunc="first")
-        ear_pivot = scan_dfs[ds].pivot_table(index="tensor", columns="bits",
-                                              values="EAR", aggfunc="first")
         noise_pivot = scan_dfs[ds].pivot_table(index="tensor", columns="bits",
                                                 values="noise", aggfunc="first")
         slopes_by = slopes_dfs[ds].set_index("tensor").to_dict("index")
@@ -466,7 +553,7 @@ def build_cost_matrix(method, objective, scan_dfs, slopes_dfs, m4_df, m6_df,
             cost[i, -1] = 0.0
             if not quantizable[name]:
                 continue
-            w = param_weights[name]
+            w = param_weights[name] if use_w else 1.0
             for j, state in enumerate(ALL_STATES):
                 if state == STATE_NONE:
                     continue
@@ -490,15 +577,13 @@ def build_cost_matrix(method, objective, scan_dfs, slopes_dfs, m4_df, m6_df,
             cost[i, -1] = 0.0
             if not quantizable[name]:
                 continue
-            w = param_weights[name]
+            w = param_weights[name] if use_w else 1.0
             for j, state in enumerate(ALL_STATES):
                 if state == STATE_NONE:
                     continue
                 try:
-                    if objective == "kld":
-                        val = float(piv_k.loc[name, state])
-                    else:
-                        val = float(piv_e.loc[name, state])
+                    val = float((piv_k if objective == "kld" else piv_e)
+                                .loc[name, state])
                 except (KeyError, ValueError):
                     continue
                 if np.isnan(val):
@@ -508,53 +593,45 @@ def build_cost_matrix(method, objective, scan_dfs, slopes_dfs, m4_df, m6_df,
     elif method == "method10":
         c4, _ = build_cost_matrix("method4", objective, scan_dfs, slopes_dfs,
                                    m4_df, m6_df, allowlist, param_weights,
-                                   quantizable, default_dataset)
+                                   quantizable, default_dataset, use_w)
         c5, _ = build_cost_matrix("method5", objective, scan_dfs, slopes_dfs,
                                    m4_df, m6_df, allowlist, param_weights,
-                                   quantizable, default_dataset)
+                                   quantizable, default_dataset, use_w)
         c6, _ = build_cost_matrix("method6", objective, scan_dfs, slopes_dfs,
                                    m4_df, m6_df, allowlist, param_weights,
-                                   quantizable, default_dataset)
+                                   quantizable, default_dataset, use_w)
         cost = (c4 + c5 + c6) / 3.0
-
     else:
         raise ValueError(f"unknown method {method}")
-
     return cost, storage
 
 
 def solve_ilp(cost, storage, quantizable_list, param_counts, budget_bpw):
     n, n_states = cost.shape
     n_vars = n * n_states
-
     c = cost.flatten().copy()
     c[np.isinf(c)] = 1e10
-
     A_eq = np.zeros((n, n_vars))
     for i in range(n):
         A_eq[i, i * n_states:(i + 1) * n_states] = 1.0
     b_eq = np.ones(n)
-
     storage_bits = storage * np.array(param_counts).reshape(-1, 1)
     ws = storage_bits.flatten().copy()
     ws[np.isinf(ws)] = 1e10
     A_ineq = ws.reshape(1, -1)
     b_ineq = budget_bpw * float(sum(param_counts))
-
     lb = np.zeros(n_vars)
     ub = np.ones(n_vars)
     for i in range(n):
         if not quantizable_list[i]:
             for j in range(len(BITS)):
                 ub[i * n_states + j] = 0.0
-
     res = milp(c=c,
                constraints=[LinearConstraint(A_eq, b_eq, b_eq),
                             LinearConstraint(A_ineq, -np.inf, b_ineq)],
                integrality=np.ones(n_vars), bounds=Bounds(lb, ub))
     if not res.success:
         return None, None
-
     x = np.asarray(res.x).reshape(n, n_states)
     state_idx = [int(np.argmax(x[i])) for i in range(n)]
     predicted = float(sum(cost[i, state_idx[i]] for i in range(n)))
@@ -562,16 +639,15 @@ def solve_ilp(cost, storage, quantizable_list, param_counts, budget_bpw):
 
 
 def phase2_solve(scan_dfs, slopes_dfs, m4_df, m6_df, allowlist, param_weights,
-                 quantizable, param_counts, default_dataset, budgets):
+                 quantizable, param_counts, default_dataset, budgets, use_w):
     quantizable_list = [quantizable[nm] for nm in allowlist]
     param_counts_list = [param_counts[nm] for nm in allowlist]
-
     matrices = {}
     for obj in OBJECTIVES:
         for method in METHODS:
             cost, storage = build_cost_matrix(
                 method, obj, scan_dfs, slopes_dfs, m4_df, m6_df,
-                allowlist, param_weights, quantizable, default_dataset,
+                allowlist, param_weights, quantizable, default_dataset, use_w,
             )
             matrices[(method, obj)] = (cost, storage)
 
@@ -602,15 +678,20 @@ def phase2_solve(scan_dfs, slopes_dfs, m4_df, m6_df, allowlist, param_weights,
 
 
 # ==========================================================================
-# 8. Phase 3 — evaluation
+# 9. Phase 3 — evaluation
 # ==========================================================================
-def apply_assignment(model, allowlist, orig_cpu, assignment):
+def apply_assignment(model, allowlist, orig_cpu, assignment, precomputed,
+                     use_precompute):
     for name in allowlist:
         state = assignment.get(name, STATE_NONE)
         if state == STATE_NONE:
             restore_one(model, name, orig_cpu[name])
         else:
-            apply_one(model, name, orig_cpu[name], int(state))
+            if use_precompute:
+                Wh_cpu, _ = precomputed[name][int(state)]
+                apply_precomputed(model, name, Wh_cpu)
+            else:
+                apply_one(model, name, orig_cpu[name], int(state))
 
 
 def actual_bpw(assignment, allowlist, param_counts, quantizable, total_params):
@@ -625,9 +706,9 @@ def actual_bpw(assignment, allowlist, param_counts, quantizable, total_params):
     return total / total_params
 
 
-def phase3a_composite(model, allowlist, orig_cpu, quantizable, configs,
-                      eval_caches, eval_datasets, param_counts, total_params,
-                      device, fwd_chunk):
+def phase3a_composite(model, allowlist, orig_cpu, quantizable, precomputed,
+                      configs, eval_caches, eval_datasets, param_counts,
+                      total_params, device, fwd_chunk, use_precompute):
     rows = []
     for method in METHODS:
         for budget in BUDGETS:
@@ -639,7 +720,8 @@ def phase3a_composite(model, allowlist, orig_cpu, quantizable, configs,
                 predicted = entry["predicted_cost"]
                 bpw = actual_bpw(assignment, allowlist, param_counts,
                                  quantizable, total_params)
-                apply_assignment(model, allowlist, orig_cpu, assignment)
+                apply_assignment(model, allowlist, orig_cpu, assignment,
+                                 precomputed, use_precompute)
                 for ds_name in eval_datasets:
                     seqs, c_ids, c_probs = eval_caches[ds_name]
                     m = evaluate_config(model, seqs, c_ids, c_probs,
@@ -647,8 +729,7 @@ def phase3a_composite(model, allowlist, orig_cpu, quantizable, configs,
                     rows.append({
                         "method": method, "budget_target": budget,
                         "objective": obj, "dataset": ds_name,
-                        "actual_bpw": bpw,
-                        "predicted_cost": predicted,
+                        "actual_bpw": bpw, "predicted_cost": predicted,
                         "mean_kld": m["mean_kld"], "mean_ear": m["mean_ear"],
                         "mean_q_res": m["mean_q_res"],
                         "mean_q20_res": m["mean_q20_res"],
@@ -660,20 +741,23 @@ def phase3a_composite(model, allowlist, orig_cpu, quantizable, configs,
     return pd.DataFrame(rows)
 
 
-def phase3b_uniform(model, allowlist, orig_cpu, quantizable, eval_caches,
-                    eval_datasets, param_counts, total_params, device, fwd_chunk):
+def phase3b_uniform(model, allowlist, orig_cpu, quantizable, precomputed,
+                    eval_caches, eval_datasets, param_counts, total_params,
+                    device, fwd_chunk, use_precompute):
     rows = []
     for bits in UNIFORM_VARIANTS:
         total = 0
         for name in allowlist:
             pc = param_counts[name]
-            if quantizable[name]:
-                total += pc * (bits + 1)
-            else:
-                total += pc * 16
+            total += pc * (bits + 1) if quantizable[name] else pc * 16
         bpw = total / total_params
         for name in allowlist:
-            if quantizable[name]:
+            if not quantizable[name]:
+                continue
+            if use_precompute:
+                Wh_cpu, _ = precomputed[name][bits]
+                apply_precomputed(model, name, Wh_cpu)
+            else:
                 apply_one(model, name, orig_cpu[name], bits)
         for ds_name in eval_datasets:
             seqs, c_ids, c_probs = eval_caches[ds_name]
@@ -692,7 +776,7 @@ def phase3b_uniform(model, allowlist, orig_cpu, quantizable, eval_caches,
 
 
 # ==========================================================================
-# 9. Upload
+# 10. Upload
 # ==========================================================================
 def upload_results(out_dir, repo_id, token):
     if not repo_id:
@@ -715,7 +799,7 @@ def upload_results(out_dir, repo_id, token):
 
 
 # ==========================================================================
-# 10. Main
+# 11. Main
 # ==========================================================================
 def cmd_run(args):
     os.makedirs(args.out_dir, exist_ok=True)
@@ -741,9 +825,21 @@ def cmd_run(args):
     quantizable = {n: (model.get_parameter(n).shape[1] % GROUP_SIZE == 0)
                    for n in allowlist}
 
+    use_w = args.use_w
+    print(f"[config] use_w_in_cost = {use_w}")
+
     with open(args.allowlist) as s, \
          open(os.path.join(args.out_dir, "allowlist_used.csv"), "w") as d:
         d.write(s.read())
+
+    # ---- pre-compute quantized weights (one-time) ----
+    use_precompute = not args.no_precompute
+    if use_precompute:
+        print("[precompute] computing all (tensor, bits) QDQ once ...")
+        precomputed = precompute_quantized(allowlist, orig_cpu, quantizable, device)
+    else:
+        print("[precompute] disabled via --no-precompute; on-demand QDQ in each phase")
+        precomputed = {name: {} for name in allowlist}
 
     scan_ds = [x.strip() for x in args.scan_datasets.split(",") if x.strip()]
     eval_ds = [x.strip() for x in args.eval_datasets.split(",") if x.strip()]
@@ -778,7 +874,8 @@ def cmd_run(args):
         scan_df = pd.read_parquet(p1a)
     else:
         scan_df = phase1a_scan(model, allowlist, orig_cpu, quantizable,
-                                scan_caches, device, args.fwd_chunk)
+                                precomputed, scan_caches, device,
+                                args.fwd_chunk, use_precompute)
         scan_df.to_parquet(p1a, index=False)
     scan_dfs = {ds: scan_df[scan_df["dataset"] == ds].drop(columns=["dataset"])
                 for ds in scan_ds}
@@ -803,9 +900,9 @@ def cmd_run(args):
     else:
         order = list(allowlist)
         m4_df = phase1_sequential(
-            model, allowlist, orig_cpu, quantizable,
+            model, allowlist, orig_cpu, quantizable, precomputed,
             scan_caches[args.default_dataset], order, device,
-            args.fwd_chunk, tag="M4",
+            args.fwd_chunk, tag="M4", use_precompute=use_precompute,
         )
         m4_df.to_parquet(p_m4, index=False)
 
@@ -816,13 +913,12 @@ def cmd_run(args):
         order = list(allowlist)
         rng.shuffle(order)
         m6_df = phase1_sequential(
-            model, allowlist, orig_cpu, quantizable,
+            model, allowlist, orig_cpu, quantizable, precomputed,
             scan_caches[args.default_dataset], order, device,
-            args.fwd_chunk, tag="M6",
+            args.fwd_chunk, tag="M6", use_precompute=use_precompute,
         )
         m6_df.to_parquet(p_m6, index=False)
 
-    # tensor meta
     meta_df = pd.DataFrame([
         {"tensor": n, "param_count": param_counts[n],
          "param_weight": param_weights[n], "quantizable": quantizable[n]}
@@ -841,7 +937,7 @@ def cmd_run(args):
     else:
         configs = phase2_solve(scan_dfs, slopes_dfs, m4_df, m6_df, allowlist,
                                 param_weights, quantizable, param_counts,
-                                args.default_dataset, BUDGETS)
+                                args.default_dataset, BUDGETS, use_w)
         with open(configs_path, "w") as f:
             json.dump(configs, f, indent=2)
 
@@ -851,8 +947,9 @@ def cmd_run(args):
         composite_df = pd.read_csv(p3a)
     else:
         composite_df = phase3a_composite(
-            model, allowlist, orig_cpu, quantizable, configs, eval_caches,
-            eval_ds, param_counts, total_params, device, args.fwd_chunk,
+            model, allowlist, orig_cpu, quantizable, precomputed, configs,
+            eval_caches, eval_ds, param_counts, total_params, device,
+            args.fwd_chunk, use_precompute,
         )
         composite_df.to_csv(p3a, index=False)
 
@@ -862,8 +959,9 @@ def cmd_run(args):
         uniform_df = pd.read_csv(p3b)
     else:
         uniform_df = phase3b_uniform(
-            model, allowlist, orig_cpu, quantizable, eval_caches, eval_ds,
-            param_counts, total_params, device, args.fwd_chunk,
+            model, allowlist, orig_cpu, quantizable, precomputed,
+            eval_caches, eval_ds, param_counts, total_params, device,
+            args.fwd_chunk, use_precompute,
         )
         uniform_df.to_csv(p3b, index=False)
 
@@ -877,6 +975,8 @@ def cmd_run(args):
         "bits": BITS, "budgets": BUDGETS, "methods": METHODS,
         "objectives": OBJECTIVES, "uniform_variants": UNIFORM_VARIANTS,
         "n_tensors": len(allowlist), "total_params": total_params,
+        "precompute_used": use_precompute,
+        "use_w_cost": use_w,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     with open(os.path.join(args.out_dir, "run_config.json"), "w") as f:
@@ -911,6 +1011,10 @@ def main():
                     help="Dataset used by M1-M6 and M10")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--no-upload", action="store_true")
+    ap.add_argument("--no-precompute", action="store_true",
+                    help="Disable pre-computed QDQ (CPU RAM saving, slower)")
+    ap.add_argument("--use-w", action="store_true",
+                    help="Enable param_weight multiplier in cost (default: OFF)")
     args = ap.parse_args()
     cmd_run(args)
 
