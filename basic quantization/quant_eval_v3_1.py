@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-quant_eval_v3_1.py — 3 methods, activation-space noise, no old methods.
+quant_eval_v3_1.py — 3 methods, activation-space noise, tied-weight aware.
 
 Methods
 -------
@@ -8,12 +8,15 @@ Methods
   M2A : measured(default) × noise_A × [W]
   M7A : slope_A(wikitext) × noise_A × [W]
 
-  noise_A = ‖(W − Ŵ) · X‖_F     (activation-space Frobenius norm, no division)
-  X = calibration activations captured by forward hook on stack_python.
+  noise_A = activation-space Frobenius norm of output perturbation.
+    Linear     : sqrt( Σ_t ‖ΔW · x_t‖² )
+    Embedding  : sqrt( Σ_v count[v] · ‖ΔE[v]‖² )   (count = token frequency)
+    Tied weight: sqrt( Σ_embed + Σ_lmhead )       (both consumers fire)
+
+  No weight-space fallback. All noise is activation-space.
+  Uncovered tensors (neither Linear nor Embedding) get NaN → forced to bf16.
 
   [W] = param_weight multiplier, OFF by default (--use-w).
-
-Old methods (M1-M10 from v3) removed. No M4/M6 sequential scans.
 
 Objectives: kld, dear (1 − EAR).
 Uniform baselines: pure b-bit models on all 4 datasets.
@@ -46,13 +49,13 @@ EPS = 1e-12
 
 # ---- HF ----
 HF_TOKEN = ""                      # fill or set env HF_TOKEN
-HF_REPO  = "w-ahmad/model1a_v3_1"
+HF_REPO  = "w-ahmad/model1a_v3_1_new_noise"
 
 # ---- Bit-space ----
 BITS = [2, 3, 4, 5, 6, 8, 12]
 STATE_NONE = "none"
 ALL_STATES = BITS + [STATE_NONE]
-UNIFORM_VARIANTS = [2, 3, 4, 5, 6, 8, 12]
+UNIFORM_VARIANTS = []
 
 BUDGETS = [3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 7.0, 8.0]
 METHODS = ["method1a", "method2a", "method7a"]
@@ -313,51 +316,92 @@ def evaluate_config(model, sequences, cache_ids, cache_probs, device, fwd_chunk)
 
 
 # ==========================================================================
-# 5. Phase 0 — calibration (activation-space noise)
+# 5. Phase 0 — calibration (activation-space noise, tied-aware)
 # ==========================================================================
 def phase0_calibration(model, allowlist, orig_cpu, precomputed, quantizable,
                        calib_sequences, device, fwd_chunk):
     """
-    Forward pass with hooks on every allowlisted nn.Linear.
-    For each layer: capture X once, for each bit-width compute ΔW·X, accumulate (ΔW·X)²
-    sum, then free. Returns DataFrame with columns tensor, bits, noise_A.
+    Forward pass with hooks on every module that consumes an allowlisted
+    tensor. Modules are discovered by parameter identity (id(param)), so
+    tied weights (e.g. embed_tokens ↔ lm_head) register BOTH consumers.
+
+    Linear    → noise_A = sqrt(Σ_t ‖ΔW · x_t‖²)       (activation-space)
+    Embedding → noise_A = sqrt(Σ_v count[v]·‖ΔE[v]‖²) (activation-space,
+                where count[v] is the token-frequency over calibration)
+    Tied      → both consumers fire, squared sums accumulate in same cell,
+                final sqrt gives combined Frobenius norm.
+    Uncovered → NaN in output (ILP forces bf16).
     """
-    # map full param name -> module
-    name_to_module = {}
+    param_id_to_name = {id(model.get_parameter(n)): n for n in allowlist}
+
+    consumers = {name: [] for name in allowlist}   # name -> [(module, kind)]
     for mod_name, mod in model.named_modules():
         if isinstance(mod, torch.nn.Linear):
-            for pn, _ in mod.named_parameters(recurse=False):
-                full = f"{mod_name}.{pn}" if mod_name else pn
-                if full in allowlist:
-                    name_to_module[full] = mod
-    print(f"[calibration] {len(name_to_module)} of {len(allowlist)} allowlisted "
-          f"tensors are nn.Linear (hooked)")
+            for pn, p in mod.named_parameters(recurse=False):
+                canonical = param_id_to_name.get(id(p))
+                if canonical is not None:
+                    consumers[canonical].append((mod, "linear"))
+        elif isinstance(mod, torch.nn.Embedding):
+            for pn, p in mod.named_parameters(recurse=False):
+                canonical = param_id_to_name.get(id(p))
+                if canonical is not None:
+                    consumers[canonical].append((mod, "embedding"))
+
+    covered = {n for n, lst in consumers.items() if lst}
+    missing = [n for n in allowlist if n not in covered]
+    n_lin = sum(1 for lst in consumers.values() for (_, k) in lst if k == "linear")
+    n_emb = sum(1 for lst in consumers.values() for (_, k) in lst if k == "embedding")
+    print(f"[calibration] {len(covered)}/{len(allowlist)} tensors covered "
+          f"({n_lin} Linear hooks, {n_emb} Embedding hooks)")
+    if missing:
+        print(f"[calibration] WARNING: {len(missing)} uncovered (→ bf16): "
+              f"{missing[:5]}{'...' if len(missing) > 5 else ''}")
 
     sq_sum = {name: {b: 0.0 for b in BITS} for name in allowlist}
 
-    def make_hook(name):
+    def make_linear_hook(name):
         def hook(module, inputs, output):
             X = inputs[0]
             if X.dim() > 2:
                 X = X.reshape(-1, X.shape[-1])
-            X = X.t().float()                        # [in, T]
+            X = X.t().float()                              # [in, T]
             orig = orig_cpu[name].to(device, dtype=torch.float32)
             for b in BITS:
                 entry = precomputed[name].get(b)
                 if entry is None:
                     continue
-                Wh_cpu, _ = entry
-                Wh = Wh_cpu.to(device, dtype=torch.float32)
-                dW = orig - Wh                       # [out, in]
-                Y = dW @ X                           # [out, T]
+                Wh = entry[0].to(device, dtype=torch.float32)
+                dW = orig - Wh                             # [out, in]
+                Y = dW @ X                                 # [out, T]
                 sq_sum[name][b] += (Y ** 2).sum().item()
                 del dW, Y, Wh
             del X, orig
         return hook
 
+    def make_embedding_hook(name):
+        def hook(module, inputs, output):
+            ids = inputs[0].reshape(-1).long()
+            vocab = module.num_embeddings
+            counts = torch.bincount(ids, minlength=vocab).float()   # [vocab]
+            orig = orig_cpu[name].to(device, dtype=torch.float32)   # [vocab, H]
+            for b in BITS:
+                entry = precomputed[name].get(b)
+                if entry is None:
+                    continue
+                Wh = entry[0].to(device, dtype=torch.float32)
+                dE = orig - Wh                             # [vocab, H]
+                sq_per_row = (dE ** 2).sum(dim=1)          # [vocab]
+                sq_sum[name][b] += (sq_per_row * counts).sum().item()
+                del dE, Wh
+            del orig
+        return hook
+
     handles = []
-    for name, module in name_to_module.items():
-        handles.append(module.register_forward_hook(make_hook(name)))
+    for name, lst in consumers.items():
+        for module, kind in lst:
+            fn = make_embedding_hook(name) if kind == "embedding" \
+                 else make_linear_hook(name)
+            handles.append(module.register_forward_hook(fn))
 
     n = len(calib_sequences)
     print(f"[calibration] running forward on {n} seqs (fwd_chunk={fwd_chunk}) ...")
@@ -379,7 +423,7 @@ def phase0_calibration(model, allowlist, orig_cpu, precomputed, quantizable,
 
     rows = []
     for name in allowlist:
-        if name not in name_to_module:
+        if name not in covered:
             for b in BITS:
                 rows.append({"tensor": name, "bits": b, "noise_A": float("nan")})
             continue
@@ -389,7 +433,8 @@ def phase0_calibration(model, allowlist, orig_cpu, precomputed, quantizable,
             rows.append({"tensor": name, "bits": b, "noise_A": noise})
 
     df = pd.DataFrame(rows)
-    print(f"[calibration] wrote noise_A for {len(allowlist)} tensors × {len(BITS)} bits")
+    print(f"[calibration] wrote noise_A for {len(covered)} covered tensors "
+          f"× {len(BITS)} bits  ({len(missing)} missed)")
     return df
 
 
@@ -783,7 +828,7 @@ def cmd_run(args):
     scan_caches = {ds: slice_cache(ds, args.scan_n_seqs) for ds in SCAN_DATASETS}
     eval_caches = {ds: slice_cache(ds, args.n_seqs) for ds in EVAL_DATASETS}
 
-    # ---- Phase 0 — calibration (on stack_python, original model) ----
+    # ---- Phase 0 — calibration (tied-aware) ----
     p0_path = os.path.join(args.out_dir, "phase0", "activation_noise.parquet")
     if os.path.exists(p0_path) and args.resume:
         print(f"[calibration] loading {p0_path}")
@@ -877,7 +922,7 @@ def cmd_run(args):
         "objectives": OBJECTIVES, "uniform_variants": UNIFORM_VARIANTS,
         "n_tensors": len(allowlist), "total_params": total_params,
         "use_w_cost": use_w,
-        "noise_definition": "activation_space_frobenius_no_division",
+        "noise_definition": "activation_space_frobenius_no_division_tied_aware",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     with open(os.path.join(args.out_dir, "run_config.json"), "w") as f:
@@ -903,8 +948,8 @@ def main():
     ap.add_argument("--seq-len", type=int, default=512)
     ap.add_argument("--scan-n-seqs", type=int, default=30)
     ap.add_argument("--n-seqs", type=int, default=100)
-    ap.add_argument("--fwd-chunk", type=int, default=4,
-                    help="batch size per forward (calib + scan + eval)")
+    ap.add_argument("--fwd-chunk", type=int, default=30,
+                    help="batch size per forward; reduce if OOM in calibration")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--no-upload", action="store_true")
     ap.add_argument("--no-precompute", action="store_true",
