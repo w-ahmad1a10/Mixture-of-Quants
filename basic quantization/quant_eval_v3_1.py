@@ -321,20 +321,14 @@ def evaluate_config(model, sequences, cache_ids, cache_probs, device, fwd_chunk)
 def phase0_calibration(model, allowlist, orig_cpu, precomputed, quantizable,
                        calib_sequences, device, fwd_chunk):
     """
-    Forward pass with hooks on every module that consumes an allowlisted
-    tensor. Modules are discovered by parameter identity (id(param)), so
-    tied weights (e.g. embed_tokens ↔ lm_head) register BOTH consumers.
-
-    Linear    → noise_A = sqrt(Σ_t ‖ΔW · x_t‖²)       (activation-space)
-    Embedding → noise_A = sqrt(Σ_v count[v]·‖ΔE[v]‖²) (activation-space,
-                where count[v] is the token-frequency over calibration)
-    Tied      → both consumers fire, squared sums accumulate in same cell,
-                final sqrt gives combined Frobenius norm.
-    Uncovered → NaN in output (ILP forces bf16).
+    Activation-space RELATIVE noise, tied-aware.
+    noise_A[i,b] = sqrt( sq_sum_total / orig_sq_sum_total )
+    where sq_sum_total = embed + linear (perturbation),
+          orig_sq_sum_total = embed + linear (original output norm).
     """
     param_id_to_name = {id(model.get_parameter(n)): n for n in allowlist}
 
-    consumers = {name: [] for name in allowlist}   # name -> [(module, kind)]
+    consumers = {name: [] for name in allowlist}
     for mod_name, mod in model.named_modules():
         if isinstance(mod, torch.nn.Linear):
             for pn, p in mod.named_parameters(recurse=False):
@@ -357,23 +351,36 @@ def phase0_calibration(model, allowlist, orig_cpu, precomputed, quantizable,
         print(f"[calibration] WARNING: {len(missing)} uncovered (→ bf16): "
               f"{missing[:5]}{'...' if len(missing) > 5 else ''}")
 
-    sq_sum = {name: {b: 0.0 for b in BITS} for name in allowlist}
+    # --- NEW: also track original output norms ---
+    sq_sum_embed       = {name: {b: 0.0 for b in BITS} for name in allowlist}
+    sq_sum_linear      = {name: {b: 0.0 for b in BITS} for name in allowlist}
+    orig_sq_sum_embed  = {name: {b: 0.0 for b in BITS} for name in allowlist}
+    orig_sq_sum_linear = {name: {b: 0.0 for b in BITS} for name in allowlist}
 
     def make_linear_hook(name):
         def hook(module, inputs, output):
             X = inputs[0]
             if X.dim() > 2:
                 X = X.reshape(-1, X.shape[-1])
-            X = X.t().float()                              # [in, T]
-            orig = orig_cpu[name].to(device, dtype=torch.float32)
+            X = X.t().float()                                   # [in, T]
+            orig = orig_cpu[name].to(device, dtype=torch.float32)  # [out, in]
+
+            # --- NEW: original output norm (independent of b) ---
+            Y_orig = orig @ X                                   # [out, T]
+            orig_sq = (Y_orig ** 2).sum().item()
+            del Y_orig
+            for b in BITS:
+                orig_sq_sum_linear[name][b] += orig_sq
+
+            # --- existing: per-b perturbation ---
             for b in BITS:
                 entry = precomputed[name].get(b)
                 if entry is None:
                     continue
                 Wh = entry[0].to(device, dtype=torch.float32)
-                dW = orig - Wh                             # [out, in]
-                Y = dW @ X                                 # [out, T]
-                sq_sum[name][b] += (Y ** 2).sum().item()
+                dW = orig - Wh
+                Y = dW @ X
+                sq_sum_linear[name][b] += (Y ** 2).sum().item()
                 del dW, Y, Wh
             del X, orig
         return hook
@@ -382,16 +389,24 @@ def phase0_calibration(model, allowlist, orig_cpu, precomputed, quantizable,
         def hook(module, inputs, output):
             ids = inputs[0].reshape(-1).long()
             vocab = module.num_embeddings
-            counts = torch.bincount(ids, minlength=vocab).float()   # [vocab]
-            orig = orig_cpu[name].to(device, dtype=torch.float32)   # [vocab, H]
+            counts = torch.bincount(ids, minlength=vocab).float()
+            orig = orig_cpu[name].to(device, dtype=torch.float32)  # [vocab, H]
+
+            # --- NEW: original output norm ---
+            orig_sq_per_row = (orig ** 2).sum(dim=1)            # [vocab]
+            orig_sq = (orig_sq_per_row * counts).sum().item()
+            for b in BITS:
+                orig_sq_sum_embed[name][b] += orig_sq
+
+            # --- existing: per-b perturbation ---
             for b in BITS:
                 entry = precomputed[name].get(b)
                 if entry is None:
                     continue
                 Wh = entry[0].to(device, dtype=torch.float32)
-                dE = orig - Wh                             # [vocab, H]
-                sq_per_row = (dE ** 2).sum(dim=1)          # [vocab]
-                sq_sum[name][b] += (sq_per_row * counts).sum().item()
+                dE = orig - Wh
+                sq_per_row = (dE ** 2).sum(dim=1)
+                sq_sum_embed[name][b] += (sq_per_row * counts).sum().item()
                 del dE, Wh
             del orig
         return hook
@@ -425,19 +440,38 @@ def phase0_calibration(model, allowlist, orig_cpu, precomputed, quantizable,
     for name in allowlist:
         if name not in covered:
             for b in BITS:
-                rows.append({"tensor": name, "bits": b, "noise_A": float("nan")})
+                rows.append({
+                    "tensor": name, "bits": b,
+                    "sq_sum_embed": float("nan"), "sq_sum_linear": float("nan"),
+                    "sq_sum_total": float("nan"),
+                    "orig_sq_sum_embed": float("nan"),
+                    "orig_sq_sum_linear": float("nan"),
+                    "orig_sq_sum_total": float("nan"),
+                    "noise_A": float("nan"),
+                })
             continue
         for b in BITS:
-            val = sq_sum[name][b]
-            noise = float(np.sqrt(val)) if val > 0 else 0.0
-            rows.append({"tensor": name, "bits": b, "noise_A": noise})
+            se  = sq_sum_embed[name][b]
+            sl  = sq_sum_linear[name][b]
+            st  = se + sl
+            ose = orig_sq_sum_embed[name][b]
+            osl = orig_sq_sum_linear[name][b]
+            ost = ose + osl
+            noise = float(np.sqrt(st / ost)) if ost > 0 else float("nan")
+            rows.append({
+                "tensor": name, "bits": b,
+                "sq_sum_embed": float(se), "sq_sum_linear": float(sl),
+                "sq_sum_total": float(st),
+                "orig_sq_sum_embed": float(ose),
+                "orig_sq_sum_linear": float(osl),
+                "orig_sq_sum_total": float(ost),
+                "noise_A": noise,
+            })
 
     df = pd.DataFrame(rows)
-    print(f"[calibration] wrote noise_A for {len(covered)} covered tensors "
-          f"× {len(BITS)} bits  ({len(missing)} missed)")
+    print(f"[calibration] wrote relative-noise report for {len(covered)} "
+          f"covered tensors × {len(BITS)} bits  ({len(missing)} missed)")
     return df
-
-
 # ==========================================================================
 # 6. Phase 1a — scan (stack_python + wikitext)
 # ==========================================================================
