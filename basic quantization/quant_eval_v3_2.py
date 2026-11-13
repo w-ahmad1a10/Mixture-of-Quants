@@ -21,8 +21,8 @@ Scan truncations (top-K support)
 Eval truncation is always K=1000.
 
 No calibration, no uniform baselines, no dear objective.
-Weight-space noise (‖ΔW‖²_F / ‖W‖²_F).
-Disk-backed precompute via numpy mmap (.npy).
+Weight-space noise (‖ΔW‖²_F / ‖W‖²_F), same as v3.
+RAM-based precompute (v3 style).
 
 Upload: subfolder per run under HF_REPO/datasets path.
 """
@@ -32,7 +32,6 @@ import csv
 import gc
 import json
 import os
-import pickle
 import sys
 import time
 from datetime import datetime, timezone
@@ -125,51 +124,41 @@ def qdq_per_group_sym(W, bits):
 
 
 # ==========================================================================
-# 2. Disk precompute
+# 2. RAM precompute (v3 style)
 # ==========================================================================
-def precompute_to_disk(allowlist, orig_cpu, quantizable, cache_dir, resume):
-    manifest_path = os.path.join(cache_dir, "manifest.pkl")
-    if resume and os.path.exists(manifest_path):
-        with open(manifest_path, "rb") as f:
-            manifest = pickle.load(f)
-        print(f"[precompute] loaded manifest from {manifest_path} "
-              f"({len(manifest)} tensors)")
-        return manifest
-
-    os.makedirs(cache_dir, exist_ok=True)
-    manifest = {}
+def precompute_quantized(allowlist, orig_cpu, quantizable, device):
+    """Compute and cache every (tensor, bits) QDQ in CPU RAM.
+    Returns {name: {bits: (Wh_cpu_float32_tensor, noise_float)}}."""
     t0 = time.time()
-    total = len(allowlist)
-    disk_bytes = 0
+    precomputed = {}
+    total_tensors = len(allowlist)
     for idx, name in enumerate(allowlist):
-        manifest[name] = {}
+        precomputed[name] = {}
         if not quantizable[name]:
             continue
-        W_np = orig_cpu[name].float().numpy()
-        safe = name.replace("/", "__").replace(".", "_")
+        W_bf16 = orig_cpu[name]
+        W_np = W_bf16.float().numpy()
         for bits in BITS:
             Wh, noise = qdq_per_group_sym(W_np, bits)
             if Wh is None:
                 continue
-            path = os.path.join(cache_dir, f"{safe}__{bits}bit.npy")
-            np.save(path, Wh.astype(np.float32))
-            disk_bytes += Wh.nbytes
-            manifest[name][bits] = (path, float(noise))
-        if (idx + 1) % 10 == 0 or idx == total - 1:
+            precomputed[name][bits] = (torch.from_numpy(Wh), noise)
+        if (idx + 1) % 10 == 0 or idx == total_tensors - 1:
             elapsed = time.time() - t0
-            eta = elapsed / (idx + 1) * (total - idx - 1)
-            print(f"  [precompute] {idx + 1}/{total} "
-                  f"({elapsed:.0f}s, ETA {eta:.0f}s, {disk_bytes / 1e9:.1f} GB)")
-    with open(manifest_path, "wb") as f:
-        pickle.dump(manifest, f)
-    return manifest
+            eta = elapsed / (idx + 1) * (total_tensors - idx - 1)
+            total_mb = sum(
+                t.numel() * t.element_size()
+                for d in precomputed.values()
+                for (t, _) in d.values()
+            ) / 1e6
+            print(f"  [precompute] {idx + 1}/{total_tensors} "
+                  f"({elapsed:.0f}s, ETA {eta:.0f}s, {total_mb:.0f} MB)")
+    return precomputed
 
 
-def apply_precomputed_from_disk(model, name, path):
-    Wh = np.load(path)
+def apply_precomputed(model, name, Wh_cpu):
     p = model.get_parameter(name)
-    p.data.copy_(torch.from_numpy(Wh).to(p.device, dtype=p.dtype))
-    del Wh
+    p.data.copy_(Wh_cpu.to(p.device, dtype=p.dtype))
 
 
 def restore_one(model, name, W_bf16_cpu):
@@ -347,7 +336,7 @@ def scan_one_tensor_bit(model, seqs, c_ids_full, c_probs_full, device, fwd_chunk
 # ==========================================================================
 # 5. Phase 1a — scan
 # ==========================================================================
-def phase1a_scan(model, allowlist, orig_cpu, quantizable, manifest,
+def phase1a_scan(model, allowlist, orig_cpu, quantizable, precomputed,
                  scan_cache, device, fwd_chunk):
     seqs, c_ids_full, c_probs_full = scan_cache
     c_ids_full = c_ids_full.to(device)
@@ -367,15 +356,15 @@ def phase1a_scan(model, allowlist, orig_cpu, quantizable, manifest,
                                 for K in SCAN_TOPKS},
                              "EAR": np.nan, "q_res": np.nan, "q20_res": np.nan})
                 continue
-            entry = manifest[name].get(bits)
+            entry = precomputed[name].get(bits)
             if entry is None:
                 rows.append({"tensor": name, "bits": bits,
                              **{f"{k}_K{K}": np.nan for k in ("mean_KLD", "p99_KLD", "p99.9_KLD")
                                 for K in SCAN_TOPKS},
                              "EAR": np.nan, "q_res": np.nan, "q20_res": np.nan})
                 continue
-            path, _ = entry
-            apply_precomputed_from_disk(model, name, path)
+            Wh_cpu, _ = entry
+            apply_precomputed(model, name, Wh_cpu)
             m = scan_one_tensor_bit(model, seqs, c_ids_full, c_probs_full,
                                      device, fwd_chunk)
             rows.append({"tensor": name, "bits": bits, **m})
@@ -585,14 +574,14 @@ def solve_ilp(cost, storage, quantizable_list, param_counts, budget_bpw):
 # ==========================================================================
 # 8. Phase 3a — composite eval
 # ==========================================================================
-def apply_assignment(model, allowlist, orig_cpu, assignment, manifest):
+def apply_assignment(model, allowlist, orig_cpu, assignment, precomputed):
     for name in allowlist:
         state = assignment.get(name, STATE_NONE)
         if state == STATE_NONE:
             restore_one(model, name, orig_cpu[name])
         else:
-            path, _ = manifest[name][int(state)]
-            apply_precomputed_from_disk(model, name, path)
+            Wh_cpu, _ = precomputed[name][int(state)]
+            apply_precomputed(model, name, Wh_cpu)
 
 
 def actual_bpw(assignment, allowlist, param_counts, quantizable, total_params):
@@ -681,7 +670,7 @@ def upload_results(out_dir, repo_id, token, run_name):
         api.upload_folder(
             repo_id=repo_id, repo_type="dataset",
             folder_path=out_dir, path_in_repo=run_name,
-            ignore_patterns=["qcache/**", "*.pyc", "__pycache__/**"],
+            ignore_patterns=["*.pyc", "__pycache__/**"],
             commit_message=f"quant_eval_v3_2 {run_name} "
                            f"{datetime.now(timezone.utc).isoformat()}",
         )
@@ -695,7 +684,7 @@ def upload_results(out_dir, repo_id, token, run_name):
 # ==========================================================================
 def cmd_run(args):
     os.makedirs(args.out_dir, exist_ok=True)
-    for d in ("phase1", "phase2", "phase3", "qcache"):
+    for d in ("phase1", "phase2", "phase3"):
         os.makedirs(os.path.join(args.out_dir, d), exist_ok=True)
 
     device = torch.device(args.device)
@@ -724,12 +713,9 @@ def cmd_run(args):
          open(os.path.join(args.out_dir, "allowlist_used.csv"), "w") as d:
         d.write(s.read())
 
-    # ---- precompute to disk ----
-    qcache_dir = os.path.join(args.out_dir, "qcache")
-    print("[precompute] computing QDQ variants to disk ...")
-    manifest = precompute_to_disk(
-        allowlist, orig_cpu, quantizable, qcache_dir, args.resume
-    )
+    # ---- precompute in RAM ----
+    print("[precompute] computing all (tensor, bits) QDQ once ...")
+    precomputed = precompute_quantized(allowlist, orig_cpu, quantizable, device)
 
     # ---- build caches ----
     # stack_python needs top-5000 (scan + eval on it)
@@ -764,13 +750,13 @@ def cmd_run(args):
         scan_df = pd.read_parquet(p1a)
     else:
         scan_df = phase1a_scan(model, allowlist, orig_cpu, quantizable,
-                                manifest, scan_cache, device, args.fwd_chunk)
+                                precomputed, scan_cache, device, args.fwd_chunk)
         scan_df.to_parquet(p1a, index=False)
 
     # ---- noise table ----
     noise_rows = []
     for name in allowlist:
-        for bits, (_, noise) in manifest[name].items():
+        for bits, (_, noise) in precomputed[name].items():
             noise_rows.append({"tensor": name, "bits": bits, "noise": noise})
     noise_df = pd.DataFrame(noise_rows)
     noise_df.to_parquet(os.path.join(args.out_dir, "phase1", "noise_w.parquet"),
@@ -870,7 +856,7 @@ def cmd_run(args):
                 predicted = entry["predicted_cost"]
                 bpw = actual_bpw(assignment, allowlist, param_counts,
                                  quantizable, total_params)
-                apply_assignment(model, allowlist, orig_cpu, assignment, manifest)
+                apply_assignment(model, allowlist, orig_cpu, assignment, precomputed)
                 for ds_name in EVAL_DATASETS:
                     seqs, c_ids, c_probs = eval_caches[ds_name]
                     m = eval_composite(model, seqs, c_ids, c_probs,
@@ -906,9 +892,9 @@ def cmd_run(args):
         "n_tensors": len(allowlist), "total_params": total_params,
         "use_w_cost": use_w,
         "noise_definition": "weight_space_relative_no_division",
+        "precompute_storage": "ram",
         "scan_eval_overlap_note": "stack_python scan=first 30 seqs, "
                                   "eval=first 100 seqs (30 seq overlap)",
-        "qcache_uploaded": False,
         "timestamp": timestamp,
         "run_name": run_name,
     }
